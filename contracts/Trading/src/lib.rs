@@ -160,7 +160,7 @@ impl TradingContract {
     }
 
     // Obtener posiciones de un trader específico (solo para admin)
-    pub fn get_trader_positions(env: Env, trader: Address) -> Vec<u64> {
+    pub fn get_trader_positions(env: Env, _trader: Address) -> Vec<u64> {
         let trader_positions_key = String::from_str(&env, "trader_positions");
         env.storage().instance()
             .get(&trader_positions_key)
@@ -317,20 +317,125 @@ impl TradingContract {
     pub fn get_current_price(env: Env, asset: Symbol) -> u64 {
         get_current_price(&env, &asset)
     }
+
+    // Configurar API key de Soroswap
+    pub fn set_soroswap_api_key(env: Env, api_key: String) {
+        env.storage().instance().set(&String::from_str(&env, "soroswap_api_key"), &api_key);
+    }
+
+    // Obtener API key de Soroswap
+    pub fn get_soroswap_api_key(env: Env) -> String {
+        env.storage().instance()
+            .get(&String::from_str(&env, "soroswap_api_key"))
+            .unwrap_or(String::from_str(&env, ""))
+    }
+
+    // Configurar dirección del contrato SoroswapFactory
+    pub fn set_soroswap_factory(env: Env, factory_address: Address) {
+        env.storage().instance().set(&String::from_str(&env, "soroswap_factory"), &factory_address);
+    }
+
+    // Obtener dirección del contrato SoroswapFactory
+    pub fn get_soroswap_factory(env: Env) -> Address {
+        env.storage().instance()
+            .get(&String::from_str(&env, "soroswap_factory"))
+            .unwrap_or(Address::from_string(&String::from_str(&env, "CA4HEQTL2WPEUYKYKCDOHCDNIV4QHNJ7EL4J4NQ6VADP7SYHVRYZ7AW2")))
+    }
+
+    // Obtener precio desde Soroswap (simulado para el hackathon)
+    pub fn get_soroswap_price(env: Env, asset: Symbol) -> u64 {
+        // En una implementación real, esto haría una llamada al contrato SoroswapFactory
+        // Para el hackathon, simulamos la respuesta basada en el asset
+        
+        // Precios simulados basados en assets comunes de Stellar
+        // En producción, esto se conectaría con la API de Soroswap
+        // Por simplicidad, usamos un mapeo directo
+        if asset == Symbol::new(&env, "XLM") {
+            150000  // $0.15
+        } else if asset == Symbol::new(&env, "USDC") {
+            1000000 // $1.00
+        } else if asset == Symbol::new(&env, "USDT") {
+            1000000 // $1.00
+        } else if asset == Symbol::new(&env, "BTC") {
+            45000000 // $45,000
+        } else if asset == Symbol::new(&env, "ETH") {
+            3000000  // $3,000
+        } else {
+            150000 // Precio por defecto
+        }
+    }
+
+    // Actualizar precio desde oráculo externo
+    pub fn update_price_from_oracle(env: Env, asset: Symbol, price: u64) {
+        // Crear clave única para el asset
+        let asset_key = if asset == Symbol::new(&env, "XLM") {
+            String::from_str(&env, "price_XLM")
+        } else if asset == Symbol::new(&env, "USDC") {
+            String::from_str(&env, "price_USDC")
+        } else if asset == Symbol::new(&env, "USDT") {
+            String::from_str(&env, "price_USDT")
+        } else if asset == Symbol::new(&env, "BTC") {
+            String::from_str(&env, "price_BTC")
+        } else if asset == Symbol::new(&env, "ETH") {
+            String::from_str(&env, "price_ETH")
+        } else {
+            String::from_str(&env, "price_UNKNOWN")
+        };
+        
+        env.storage().instance().set(&asset_key, &price);
+    }
+
+    // Obtener precio desde oráculo interno
+    pub fn get_price_from_oracle(env: Env, asset: Symbol) -> Option<u64> {
+        // Crear clave única para el asset
+        let asset_key = if asset == Symbol::new(&env, "XLM") {
+            String::from_str(&env, "price_XLM")
+        } else if asset == Symbol::new(&env, "USDC") {
+            String::from_str(&env, "price_USDC")
+        } else if asset == Symbol::new(&env, "USDT") {
+            String::from_str(&env, "price_USDT")
+        } else if asset == Symbol::new(&env, "BTC") {
+            String::from_str(&env, "price_BTC")
+        } else if asset == Symbol::new(&env, "ETH") {
+            String::from_str(&env, "price_ETH")
+        } else {
+            String::from_str(&env, "price_UNKNOWN")
+        };
+        
+        env.storage().instance().get(&asset_key)
+    }
+
+    // Función para obtener precio real desde API de Soroswap
+    pub fn fetch_soroswap_price(env: Env, asset: Symbol) -> u64 {
+        // Esta función simula una llamada a la API de Soroswap
+        // En producción, esto haría una llamada HTTP a api.soroswap.finance
+        
+        // Por ahora, retornamos precios simulados basados en el asset
+        // La API key se usaría en el frontend/bot para hacer las llamadas reales
+        Self::get_soroswap_price(env, asset)
+    }
 }
 
 // Función auxiliar para obtener precio actual
-fn get_current_price(_env: &Env, _asset: &Symbol) -> u64 {
-    // Aquí integrarías con proveedores de precios como:
-    // - Soroswap para precios de DEX
-    // - Reflector para predicciones de mercado
-    // - APIs externas para precios de referencia
+fn get_current_price(env: &Env, asset: &Symbol) -> u64 {
+    // Integración con Soroswap para precios reales
+    // En producción, esto haría una llamada a la API de Soroswap
     
-    // Por ahora, retornamos un precio simulado
-    // En implementación real, esto vendría de un oráculo
-    // Por simplicidad, retornamos un precio fijo
-    // En implementación real, esto vendría de un oráculo
-    150000 // $0.15 en stroops
+    // Por ahora, retornamos precios simulados basados en el asset
+    // La API key se usaría en el frontend/bot para hacer las llamadas reales
+    if *asset == Symbol::new(env, "XLM") {
+        150000  // $0.15
+    } else if *asset == Symbol::new(env, "USDC") {
+        1000000 // $1.00
+    } else if *asset == Symbol::new(env, "USDT") {
+        1000000 // $1.00
+    } else if *asset == Symbol::new(env, "BTC") {
+        45000000 // $45,000
+    } else if *asset == Symbol::new(env, "ETH") {
+        3000000  // $3,000
+    } else {
+        150000 // Precio por defecto
+    }
 }
 
 // Función auxiliar para calcular PnL

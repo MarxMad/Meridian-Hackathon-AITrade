@@ -237,20 +237,87 @@ fn test_global_stats() {
     assert_eq!(active_positions, 0); // Las posiciones activas no se están registrando correctamente
 }
 
-#[test]
-fn test_owner_functions() {
-    let env = Env::default();
-    let contract_id = env.register(TradingContract, ());
-    let client = TradingContractClient::new(&env, &contract_id);
+    #[test]
+    fn test_owner_functions() {
+        let env = Env::default();
+        let contract_id = env.register(TradingContract, ());
+        let client = TradingContractClient::new(&env, &contract_id);
 
-    // Inicializar contrato
-    client.initialize();
-    
-    // Verificar que el sender es el owner
-    let is_owner = client.is_owner();
-    assert!(is_owner);
-    
-    // Obtener el owner
-    let owner = client.get_owner();
-    assert_eq!(owner, contract_id);
-}
+        // Inicializar contrato
+        client.initialize();
+        
+        // Verificar que el sender es el owner
+        let is_owner = client.is_owner();
+        assert!(is_owner);
+        
+        // Obtener el owner
+        let owner = client.get_owner();
+        assert_eq!(owner, contract_id);
+    }
+
+    #[test]
+    fn test_soroswap_integration() {
+        let env = Env::default();
+        let contract_id = env.register(TradingContract, ());
+        let client = TradingContractClient::new(&env, &contract_id);
+
+        // Inicializar contrato
+        client.initialize();
+        
+        // Configurar API key de Soroswap
+        let api_key = String::from_str(&env, "sk_a4aec292b2c03443f42a09506d6dec231e0f2c8ddfb4f8c1b1177aba17a33eec");
+        client.set_soroswap_api_key(&api_key);
+        
+        // Verificar que la API key se guardó
+        let stored_api_key = client.get_soroswap_api_key();
+        assert_eq!(stored_api_key, api_key);
+        
+        // Obtener precio de XLM desde Soroswap
+        let xlm_price = client.get_soroswap_price(&Symbol::new(&env, "XLM"));
+        assert_eq!(xlm_price, 150000); // $0.15
+        
+        // Obtener precio de USDC desde Soroswap
+        let usdc_price = client.get_soroswap_price(&Symbol::new(&env, "USDC"));
+        assert_eq!(usdc_price, 1000000); // $1.00
+    }
+
+    #[test]
+    fn test_price_oracle() {
+        let env = Env::default();
+        let contract_id = env.register(TradingContract, ());
+        let client = TradingContractClient::new(&env, &contract_id);
+
+        // Inicializar contrato
+        client.initialize();
+        
+        // Actualizar precio desde oráculo externo
+        let asset = Symbol::new(&env, "XLM");
+        let price = 160000; // $0.16
+        client.update_price_from_oracle(&asset, &price);
+        
+        // Obtener precio desde oráculo interno
+        let stored_price = client.get_price_from_oracle(&asset);
+        assert_eq!(stored_price, Some(price));
+        
+        // Probar con asset que no existe
+        let unknown_asset = Symbol::new(&env, "UNKNOWN");
+        let unknown_price = client.get_price_from_oracle(&unknown_asset);
+        assert_eq!(unknown_price, None);
+    }
+
+    #[test]
+    fn test_fetch_soroswap_price() {
+        let env = Env::default();
+        let contract_id = env.register(TradingContract, ());
+        let client = TradingContractClient::new(&env, &contract_id);
+
+        // Inicializar contrato
+        client.initialize();
+        
+        // Obtener precio usando fetch_soroswap_price
+        let btc_price = client.fetch_soroswap_price(&Symbol::new(&env, "BTC"));
+        assert_eq!(btc_price, 45000000); // $45,000
+        
+        let eth_price = client.fetch_soroswap_price(&Symbol::new(&env, "ETH"));
+        assert_eq!(eth_price, 3000000); // $3,000
+    }
