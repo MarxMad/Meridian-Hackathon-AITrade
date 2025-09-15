@@ -321,3 +321,50 @@ fn test_global_stats() {
         let eth_price = client.fetch_soroswap_price(&Symbol::new(&env, "ETH"));
         assert_eq!(eth_price, 3000000); // $3,000
     }
+
+    #[test]
+    fn test_real_price_integration() {
+        let env = Env::default();
+        let contract_id = env.register(TradingContract, ());
+        let client = TradingContractClient::new(&env, &contract_id);
+
+        // Inicializar contrato
+        client.initialize();
+        
+        // Actualizar precio desde API real
+        let asset = Symbol::new(&env, "XLM");
+        let real_price = 160000; // $0.16
+        let success = client.update_price_from_api(&asset, &real_price);
+        assert!(success);
+        
+        // Obtener precio real
+        let price = client.get_real_price(&asset);
+        assert_eq!(price, real_price);
+        
+        // Verificar que se guardó en oráculo
+        let oracle_price = client.get_price_from_oracle(&asset);
+        assert_eq!(oracle_price, Some(real_price));
+    }
+
+    #[test]
+    fn test_price_fallback() {
+        let env = Env::default();
+        let contract_id = env.register(TradingContract, ());
+        let client = TradingContractClient::new(&env, &contract_id);
+
+        // Inicializar contrato
+        client.initialize();
+        
+        // Obtener precio sin actualizar oráculo (debe usar fallback)
+        let asset = Symbol::new(&env, "XLM");
+        let fallback_price = client.get_real_price(&asset);
+        assert_eq!(fallback_price, 150000); // Precio simulado
+        
+        // Actualizar precio real
+        let real_price = 170000; // $0.17
+        client.update_price_from_api(&asset, &real_price);
+        
+        // Ahora debe usar precio real
+        let updated_price = client.get_real_price(&asset);
+        assert_eq!(updated_price, real_price);
+    }

@@ -318,6 +318,24 @@ impl TradingContract {
         get_current_price(&env, &asset)
     }
 
+    // Obtener precio real desde API de Soroswap (para uso en frontend/bot)
+    pub fn get_real_price(env: Env, asset: Symbol) -> u64 {
+        // Primero intentar obtener desde oráculo interno
+        if let Some(price) = Self::get_price_from_oracle(env.clone(), asset.clone()) {
+            return price;
+        }
+        
+        // Si no hay precio en oráculo, usar precio simulado
+        Self::get_soroswap_price(env, asset)
+    }
+
+    // Función para el bot/frontend para actualizar precios desde API real
+    pub fn update_price_from_api(env: Env, asset: Symbol, price: u64) -> bool {
+        // Esta función será llamada por el bot/frontend cuando obtenga precios reales
+        Self::update_price_from_oracle(env, asset, price);
+        true
+    }
+
     // Configurar API key de Soroswap
     pub fn set_soroswap_api_key(env: Env, api_key: String) {
         env.storage().instance().set(&String::from_str(&env, "soroswap_api_key"), &api_key);
@@ -421,8 +439,13 @@ fn get_current_price(env: &Env, asset: &Symbol) -> u64 {
     // Integración con Soroswap para precios reales
     // En producción, esto haría una llamada a la API de Soroswap
     
-    // Por ahora, retornamos precios simulados basados en el asset
-    // La API key se usaría en el frontend/bot para hacer las llamadas reales
+    // Primero intentar obtener precio desde oráculo interno (precios reales)
+    let oracle_price = get_price_from_oracle_internal(env, asset);
+    if let Some(price) = oracle_price {
+        return price;
+    }
+    
+    // Si no hay precio en oráculo, usar precios simulados
     if *asset == Symbol::new(env, "XLM") {
         150000  // $0.15
     } else if *asset == Symbol::new(env, "USDC") {
@@ -436,6 +459,26 @@ fn get_current_price(env: &Env, asset: &Symbol) -> u64 {
     } else {
         150000 // Precio por defecto
     }
+}
+
+// Función auxiliar para obtener precio desde oráculo interno
+fn get_price_from_oracle_internal(env: &Env, asset: &Symbol) -> Option<u64> {
+    // Crear clave única para el asset
+    let asset_key = if *asset == Symbol::new(env, "XLM") {
+        String::from_str(env, "price_XLM")
+    } else if *asset == Symbol::new(env, "USDC") {
+        String::from_str(env, "price_USDC")
+    } else if *asset == Symbol::new(env, "USDT") {
+        String::from_str(env, "price_USDT")
+    } else if *asset == Symbol::new(env, "BTC") {
+        String::from_str(env, "price_BTC")
+    } else if *asset == Symbol::new(env, "ETH") {
+        String::from_str(env, "price_ETH")
+    } else {
+        String::from_str(env, "price_UNKNOWN")
+    };
+    
+    env.storage().instance().get(&asset_key)
 }
 
 // Función auxiliar para calcular PnL

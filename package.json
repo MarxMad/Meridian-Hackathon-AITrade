@@ -1,0 +1,35 @@
+{
+  "name": "meridian-hackathon-ai-trade",
+  "version": "1.0.0",
+  "description": "AI Trading Bot for Stellar with Soroswap integration",
+  "main": "soroswap_client.js",
+  "scripts": {
+    "test-api": "node test_soroswap_api.js",
+    "start": "node soroswap_client.js"
+  },
+  "keywords": [
+    "stellar",
+    "soroban",
+    "trading",
+    "ai",
+    "soroswap",
+    "defi",
+    "hackathon"
+  ],
+  "author": "Meridian Hackathon 2025",
+  "license": "MIT",
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MarxMad/Meridian-Hackathon-AITrade.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MarxMad/Meridian-Hackathon-AITrade/issues"
+  },
+  "homepage": "https://github.com/MarxMad/Meridian-Hackathon-AITrade#readme"
+}
