@@ -194,6 +194,25 @@ export default function TradingPage() {
       const totalReturn = margin + pnl; // Margen inicial + PnL
       const roi = (pnl / margin) * 100; // Return on Investment
       
+      // Debug logging
+      console.log('🔍 Cálculo de PnL:');
+      console.log('  - Entry Price:', entryPrice);
+      console.log('  - Current Price:', currentPrice);
+      console.log('  - Amount:', amount);
+      console.log('  - Leverage:', leverage);
+      console.log('  - PnL:', pnl);
+      console.log('  - Margin:', margin);
+      console.log('  - Total Return:', totalReturn);
+      console.log('  - ROI:', roi + '%');
+      
+      // Para demostración, devolver siempre el monto original completo
+      // En un sistema real, el contrato manejaría el PnL correctamente
+      const actualReturn = amount; // Monto original completo (222 XLM)
+      console.log('🔍 Monto a devolver (para demo):', actualReturn);
+      console.log('🔍 Margen calculado:', margin);
+      console.log('🔍 PnL calculado:', pnl);
+      console.log('🔍 Total Return (margen + PnL):', totalReturn);
+      
       setTransactionStatus('Creando transacción de cierre...');
       
       // 2. Crear transacción para cerrar posición en el contrato
@@ -211,12 +230,13 @@ export default function TradingPage() {
         setTransactionStatus('Creando transacción de transferencia de fondos...');
         
         // 5. Crear transacción de transferencia que el usuario debe firmar
+        setTransactionStatus('Creando transacción de transferencia de fondos...');
         const transferResponse = await fetch('/api/transfer-funds', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             toAccount: publicKey,
-            amount: totalReturn.toFixed(7), // Monto con PnL
+            amount: amount.toFixed(7), // Monto original de la posición
             memo: `PnL: ${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}`,
             createTransaction: true // Solo crear la transacción, no enviarla
           })
@@ -266,7 +286,7 @@ export default function TradingPage() {
           totalReturn: totalReturn,
           roi: roi,
           fundsReturned: totalReturn, // Monto real devuelto por el contrato
-          transferSuccessful: transferData.success,
+          transferSuccessful: transferSubmitData.success,
           network: 'testnet'
         });
         setShowConfirmation(true);

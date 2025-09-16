@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+ import { NextRequest, NextResponse } from 'next/server';
 import { Horizon, Keypair, TransactionBuilder, Networks, Operation, Asset, Memo, Transaction } from '@stellar/stellar-sdk';
 
 // Configuración
@@ -18,25 +18,54 @@ export async function POST(request: NextRequest) {
       console.log('📤 Enviando transacción firmada...');
       console.log('📤 SignedTransaction type:', typeof signedTransaction);
       console.log('📤 SignedTransaction length:', signedTransaction?.length);
+      console.log('📤 SignedTransaction preview:', signedTransaction?.substring(0, 100));
+      
+      // Validar que el XDR sea válido
+      if (!signedTransaction || typeof signedTransaction !== 'string') {
+        throw new Error('signedTransaction debe ser un string válido');
+      }
+      
+      // Decodificar URL si es necesario
+      let decodedXdr = signedTransaction;
+      try {
+        decodedXdr = decodeURIComponent(signedTransaction);
+        console.log('📤 XDR decodificado:', decodedXdr.substring(0, 100));
+      } catch (decodeError) {
+        console.log('📤 XDR no necesita decodificación');
+      }
+      
+      console.log('📤 XDR original length:', signedTransaction.length);
+      console.log('📤 XDR decodificado length:', decodedXdr.length);
+      console.log('📤 XDR starts with AAAA:', decodedXdr.startsWith('AAAA'));
+      console.log('📤 XDR preview:', decodedXdr.substring(0, 20));
+      
+      if (!decodedXdr.startsWith('AAAA')) {
+        throw new Error(`signedTransaction no parece ser un XDR válido de Stellar. Inicio: ${decodedXdr.substring(0, 10)}`);
+      }
       
       const server = new Horizon.Server(HORIZON_URL);
       
-      // Convertir XDR string a Transaction object
-      const transaction = TransactionBuilder.fromXDR(signedTransaction, NETWORK_PASSPHRASE);
-      console.log('📤 Transaction object created:', !!transaction);
-      
-      const result = await server.submitTransaction(transaction);
-      
-      return NextResponse.json({
-        success: true,
-        message: 'Transacción enviada exitosamente',
-        data: {
-          hash: result.hash,
-          ledger: result.ledger,
-          successful: result.successful,
-          timestamp: new Date().toISOString()
-        }
-      });
+      try {
+        // Usar el XDR directamente sin conversión adicional
+        console.log('📤 Enviando XDR directamente a Horizon...');
+        
+        const result = await server.submitTransaction(decodedXdr);
+        console.log('📤 Transaction submitted successfully:', result.hash);
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Transacción enviada exitosamente',
+          data: {
+            hash: result.hash,
+            ledger: result.ledger,
+            successful: result.successful,
+            timestamp: new Date().toISOString()
+          }
+        });
+      } catch (xdrError) {
+        console.error('❌ Error procesando XDR:', xdrError);
+        throw new Error(`Error procesando transacción XDR: ${xdrError.message}`);
+      }
     }
 
     if (!toAccount || !amount) {
