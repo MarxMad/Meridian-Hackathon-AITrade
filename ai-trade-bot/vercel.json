@@ -1,10 +1,11 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
+  "buildCommand": "cd ai-trade-bot && npm run build",
+  "outputDirectory": "ai-trade-bot/.next",
   "framework": "nextjs",
+  "installCommand": "cd ai-trade-bot && npm install",
   "functions": {
-    "app/api/**/*.ts": {
+    "ai-trade-bot/app/api/**/*.ts": {
       "runtime": "nodejs18.x"
     }
   },
