@@ -1,10 +1,45 @@
 'use client';
 
 import Link from "next/link";
+import { useState, useEffect } from "react";
 import { useWallet } from "@/contexts/WalletContext";
+import { WalletNetwork } from "@creit.tech/stellar-wallets-kit";
 
 export default function Home() {
-  const { isConnected, publicKey, walletName, connect, disconnect, isLoading, error } = useWallet();
+  const { isConnected, publicKey, walletName, network, connect, disconnect, isLoading, error } = useWallet();
+  const [balance, setBalance] = useState<string>('0.0000000');
+  const [balanceLoading, setBalanceLoading] = useState(false);
+
+  // Obtener balance de la wallet
+  const fetchBalance = async () => {
+    if (!publicKey) return;
+    
+    setBalanceLoading(true);
+    try {
+      const response = await fetch(`https://horizon-testnet.stellar.org/accounts/${publicKey}`);
+      const data = await response.json();
+      
+      if (data.balances && data.balances.length > 0) {
+        const xlmBalance = data.balances.find((b: any) => b.asset_type === 'native');
+        if (xlmBalance) {
+          setBalance(parseFloat(xlmBalance.balance).toFixed(7));
+        }
+      }
+    } catch (error) {
+      console.error('Error obteniendo balance:', error);
+      setBalance('0.0000000');
+    } finally {
+      setBalanceLoading(false);
+    }
+  };
+
+  // Obtener balance cuando se conecta la wallet
+  useEffect(() => {
+    if (isConnected && publicKey) {
+      fetchBalance();
+    }
+  }, [isConnected, publicKey]);
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8">
       {/* Header con colores de Brasil */}
@@ -30,14 +65,31 @@ export default function Home() {
             {/* Wallet Connection */}
             <div className="ml-8">
               {isConnected ? (
-                <div className="bg-brazil-green text-brazil-white p-4 rounded-lg">
-                  <div className="text-sm font-bold mb-1">✅ {walletName} Conectada</div>
-                  <div className="text-xs font-mono break-all">
+                <div className="bg-brazil-green text-brazil-white p-4 rounded-lg min-w-[280px]">
+                  <div className="text-sm font-bold mb-2">✅ {walletName} Conectada</div>
+                  <div className="text-xs font-mono break-all mb-2">
                     {publicKey?.slice(0, 8)}...{publicKey?.slice(-8)}
                   </div>
+                  
+                  {/* Balance */}
+                  <div className="mb-2">
+                    <div className="text-xs text-brazil-yellow font-semibold">Balance XLM:</div>
+                    <div className="text-sm font-mono">
+                      {balanceLoading ? '⏳ Cargando...' : `${balance} XLM`}
+                    </div>
+                  </div>
+                  
+                  {/* Red */}
+                  <div className="mb-3">
+                    <div className="text-xs text-brazil-yellow font-semibold">Red:</div>
+                    <div className="text-sm">
+                      {network === WalletNetwork.TESTNET ? '🧪 Testnet' : '🌐 Mainnet'}
+                    </div>
+                  </div>
+                  
                   <button
                     onClick={disconnect}
-                    className="mt-2 text-xs bg-brazil-black text-brazil-white px-2 py-1 rounded hover:bg-brazil-gray transition-colors"
+                    className="text-xs bg-brazil-black text-brazil-white px-2 py-1 rounded hover:bg-brazil-gray transition-colors"
                   >
                     Desconectar
                   </button>

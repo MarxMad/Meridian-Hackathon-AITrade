@@ -12,6 +12,7 @@ interface WalletContextType {
   isConnected: boolean;
   publicKey: string | null;
   walletName: string | null;
+  network: WalletNetwork | null;
   connect: () => Promise<void>;
   disconnect: () => void;
   signTransaction: (transaction: string) => Promise<string>;
@@ -25,6 +26,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [walletName, setWalletName] = useState<string | null>(null);
+  const [network, setNetwork] = useState<WalletNetwork | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [kit, setKit] = useState<StellarWalletsKit | null>(null);
@@ -64,6 +66,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         setPublicKey(address);
         setIsConnected(true);
         setWalletName('Connected Wallet');
+        setNetwork(WalletNetwork.TESTNET);
       }
     } catch (err) {
       // No hay wallet conectada, esto es normal
@@ -94,6 +97,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           if (address) {
             setPublicKey(address);
             setWalletName(option.name);
+            setNetwork(WalletNetwork.TESTNET);
             setIsConnected(true);
             setError(null);
             
@@ -123,6 +127,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const disconnect = () => {
     setPublicKey(null);
     setWalletName(null);
+    setNetwork(null);
     setIsConnected(false);
     setError(null);
     console.log('🔌 Wallet desconectada');
@@ -156,6 +161,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       isConnected,
       publicKey,
       walletName,
+      network,
       connect,
       disconnect,
       signTransaction,
