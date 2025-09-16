@@ -76,12 +76,12 @@ make build
 make deploy
 ```
 
-### **🎉 Contrato Desplegado (v3.0 - Con Precios Reales de Soroswap)**
-- **Dirección**: `CATM2J4XOXICU6LGLSU36KHYT2GVUWES565RSA7OMDO7JVNITS3TRCCP`
+### **🎉 Contrato Desplegado (v4.0 - Con Swaps Automáticos)**
+- **Dirección**: `CBKXVZULDSVITY5K47BG34EMGSLS5WXZB7UETS3KYF3FOQCF4CH22JMD`
 - **Red**: Stellar Testnet
-- **Hash WASM**: `d8271caf4b0f7dba7295b451aebeb923740a048471543c3c954d765cddcb4d2a`
-- **Explorador**: [Ver en Stellar Expert](https://stellar.expert/explorer/testnet/contract/CATM2J4XOXICU6LGLSU36KHYT2GVUWES565RSA7OMDO7JVNITS3TRCCP)
-- **Características**: ✅ Precios reales de Soroswap API, ✅ Transferencias reales, ✅ Manejo de dinero real
+- **Hash WASM**: `84ff18905f17fc4bb8b3681daa45fcd7e00faa3e78f3fe04081c3a2a559636d0`
+- **Explorador**: [Ver en Stellar Expert](https://stellar.expert/explorer/testnet/contract/CBKXVZULDSVITY5K47BG34EMGSLS5WXZB7UETS3KYF3FOQCF4CH22JMD)
+- **Características**: ✅ Swaps automáticos XLM→USDC, ✅ Precios reales de Soroswap API, ✅ Transferencias reales, ✅ Manejo de dinero real
 
 ### **Testing**
 ```bash
@@ -98,7 +98,7 @@ cargo test test_auto_trade
 #### **Inicializar el Contrato**
 ```bash
 stellar contract invoke \
-  --id CATM2J4XOXICU6LGLSU36KHYT2GVUWES565RSA7OMDO7JVNITS3TRCCP \
+  --id CBKXVZULDSVITY5K47BG34EMGSLS5WXZB7UETS3KYF3FOQCF4CH22JMD \
   --source Meridian \
   --network testnet \
   --send=yes \
@@ -108,7 +108,7 @@ stellar contract invoke \
 #### **Configurar API de Soroswap**
 ```bash
 stellar contract invoke \
-  --id CATM2J4XOXICU6LGLSU36KHYT2GVUWES565RSA7OMDO7JVNITS3TRCCP \
+  --id CBKXVZULDSVITY5K47BG34EMGSLS5WXZB7UETS3KYF3FOQCF4CH22JMD \
   --source Meridian \
   --network testnet \
   --send=yes \
@@ -128,7 +128,7 @@ python soroswap_price_updater.py
 ```bash
 # Precio de XLM (desde oráculo interno)
 stellar contract invoke \
-  --id CATM2J4XOXICU6LGLSU36KHYT2GVUWES565RSA7OMDO7JVNITS3TRCCP \
+  --id CBKXVZULDSVITY5K47BG34EMGSLS5WXZB7UETS3KYF3FOQCF4CH22JMD \
   --source Meridian \
   --network testnet \
   -- get_current_price \
@@ -136,7 +136,7 @@ stellar contract invoke \
 
 # Precio desde Soroswap API (requiere API key)
 stellar contract invoke \
-  --id CATM2J4XOXICU6LGLSU36KHYT2GVUWES565RSA7OMDO7JVNITS3TRCCP \
+  --id CBKXVZULDSVITY5K47BG34EMGSLS5WXZB7UETS3KYF3FOQCF4CH22JMD \
   --source Meridian \
   --network testnet \
   -- get_soroswap_price \
@@ -147,7 +147,7 @@ stellar contract invoke \
 ```bash
 # Nota: Ahora requiere token_asset (dirección del contrato de token)
 stellar contract invoke \
-  --id CATM2J4XOXICU6LGLSU36KHYT2GVUWES565RSA7OMDO7JVNITS3TRCCP \
+  --id CBKXVZULDSVITY5K47BG34EMGSLS5WXZB7UETS3KYF3FOQCF4CH22JMD \
   --source Meridian \
   --network testnet \
   --send=yes \
@@ -161,7 +161,7 @@ stellar contract invoke \
 #### **Depositar Fondos (Transferencia Real)**
 ```bash
 stellar contract invoke \
-  --id CATM2J4XOXICU6LGLSU36KHYT2GVUWES565RSA7OMDO7JVNITS3TRCCP \
+  --id CBKXVZULDSVITY5K47BG34EMGSLS5WXZB7UETS3KYF3FOQCF4CH22JMD \
   --source Meridian \
   --network testnet \
   --send=yes \
@@ -170,10 +170,27 @@ stellar contract invoke \
   --amount 1000
 ```
 
+#### **Swap Automático XLM → USDC**
+```bash
+# Swap simulado (usando precios del contrato)
+stellar contract invoke \
+  --id CBKXVZULDSVITY5K47BG34EMGSLS5WXZB7UETS3KYF3FOQCF4CH22JMD \
+  --source Meridian \
+  --network testnet \
+  --send=yes \
+  -- swap_xlm_to_usdc \
+  --xlm_amount 100
+
+# Swap real usando Soroswap API
+cd /Users/gerryp/Meridian-Hack/soroban-meridian-hack
+source venv/bin/activate
+python soroswap_swap_executor.py
+```
+
 #### **Cerrar Posición (Con Devolución de Dinero)**
 ```bash
 stellar contract invoke \
-  --id CATM2J4XOXICU6LGLSU36KHYT2GVUWES565RSA7OMDO7JVNITS3TRCCP \
+  --id CBKXVZULDSVITY5K47BG34EMGSLS5WXZB7UETS3KYF3FOQCF4CH22JMD \
   --source Meridian \
   --network testnet \
   --send=yes \
@@ -184,7 +201,7 @@ stellar contract invoke \
 #### **Ver Posiciones del Trader**
 ```bash
 stellar contract invoke \
-  --id CATM2J4XOXICU6LGLSU36KHYT2GVUWES565RSA7OMDO7JVNITS3TRCCP \
+  --id CBKXVZULDSVITY5K47BG34EMGSLS5WXZB7UETS3KYF3FOQCF4CH22JMD \
   --source Meridian \
   --network testnet \
   -- get_trader_positions \
@@ -225,6 +242,15 @@ stellar contract invoke \
 - ✅ **Fallback a precios simulados** si no hay datos reales
 - ✅ **Soporte para múltiples activos** (XLM, USDC, BTC, etc.)
 - ✅ **Autenticación con API key** de Soroswap
+
+### **🔄 Swaps Automáticos XLM → USDC**
+- ✅ **Función de swap integrada** en el contrato (`swap_xlm_to_usdc`)
+- ✅ **Script de swap real** usando Soroswap API (`soroswap_swap_executor.py`)
+- ✅ **Cotizaciones en tiempo real** desde Soroswap
+- ✅ **Construcción automática** de transacciones XDR
+- ✅ **Ejecución directa** en la red Stellar
+- ✅ **Actualización automática** del contrato después del swap
+- ✅ **Manejo de errores** y reintentos
 
 ## 🔧 **Configuración**
 
@@ -330,7 +356,37 @@ python soroswap_price_updater.py
 # Configuración en soroswap_price_updater.py
 SOROSWAP_API_URL = "https://api.soroswap.finance"
 SOROSWAP_API_KEY = "sk_a4aec292b2c03443f42a09506d6dec231e0f2c8ddfb4f8c1b1177aba17a33eec"
-CONTRACT_ID = "CATM2J4XOXICU6LGLSU36KHYT2GVUWES565RSA7OMDO7JVNITS3TRCCP"
+CONTRACT_ID = "CBKXVZULDSVITY5K47BG34EMGSLS5WXZB7UETS3KYF3FOQCF4CH22JMD"
+```
+
+## 🔄 **Ejecutor de Swaps Soroswap**
+
+### **Script de Swap Automático**
+```bash
+# Activar entorno virtual
+source venv/bin/activate
+
+# Ejecutar swap de XLM a USDC
+python soroswap_swap_executor.py
+```
+
+### **Características del Script de Swap**
+- 🔄 **Swap automático** de XLM a USDC usando Soroswap API
+- 📊 **Cotizaciones en tiempo real** desde la API oficial
+- 🔨 **Construcción automática** de transacciones XDR
+- 🚀 **Ejecución directa** en la red Stellar testnet
+- 📝 **Actualización automática** del contrato después del swap
+- 🛡️ **Manejo de errores** y rate limiting
+- ⚡ **Integración completa** con el ecosistema Stellar
+
+### **Configuración del Script de Swap**
+```python
+# Configuración en soroswap_swap_executor.py
+SOROSWAP_API_URL = "https://api.soroswap.finance"
+SOROSWAP_API_KEY = "sk_a4aec292b2c03443f42a09506d6dec231e0f2c8ddfb4f8c1b1177aba17a33eec"
+CONTRACT_ID = "CBKXVZULDSVITY5K47BG34EMGSLS5WXZB7UETS3KYF3FOQCF4CH22JMD"
+XLM_NATIVE = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
+USDC_TESTNET = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
 ```
 
 ## 📄 **Licencia**
@@ -349,6 +405,8 @@ Este proyecto fue desarrollado para el **Meridian Hackathon 2025** en la categor
 - ✅ Precios reales de Soroswap API
 - ✅ Transferencias reales de dinero
 - ✅ Script de actualización automática de precios
+- ✅ Swaps automáticos XLM → USDC
+- ✅ Integración completa con Soroswap API
 
 ## 📞 **Contacto**
 

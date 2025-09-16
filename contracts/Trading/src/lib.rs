@@ -264,6 +264,39 @@ impl TradingContract {
         env.storage().instance().set(&global_history_key, &global_history);
     }
 
+    // Función para hacer swap de XLM a USDC usando Soroswap
+    pub fn swap_xlm_to_usdc(env: Env, xlm_amount: u64) -> u64 {
+        // Esta función simula un swap de XLM a USDC
+        // En una implementación real, esto llamaría a Soroswap API
+        
+        // 1. Verificar que hay suficiente XLM
+        let deposit_amount: u64 = env.storage().instance()
+            .get(&String::from_str(&env, "deposit_amount"))
+            .unwrap_or(0);
+        if deposit_amount < xlm_amount {
+            panic!("Fondos insuficientes para el swap");
+        }
+        
+        // 2. Obtener precio de XLM desde Soroswap
+        let xlm_price = get_current_price(&env, &Symbol::new(&env, "XLM"));
+        
+        // 3. Calcular cantidad de USDC (simulado)
+        // En la realidad, esto vendría de la respuesta de Soroswap API
+        let usdc_amount = (xlm_amount * xlm_price) / 1_000_000; // Convertir a USDC
+        
+        // 4. Actualizar depósitos
+        env.storage().instance().set(&String::from_str(&env, "deposit_amount"), &(deposit_amount - xlm_amount));
+        env.storage().instance().set(&String::from_str(&env, "usdc_amount"), &usdc_amount);
+        
+        // 5. Emitir evento
+        env.events().publish(
+            (String::from_str(&env, "swap_completed"),),
+            (xlm_amount, usdc_amount, xlm_price)
+        );
+        
+        usdc_amount
+    }
+
     // Función para el agente automático - ejecutar trading automático
     pub fn auto_trade(env: Env, asset: Symbol, amount: u64, strategy: String, token_asset: Address) -> u64 {
         // Esta función será llamada por el agente automático
