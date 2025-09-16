@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
 
     // Si se envía una transacción firmada, solo enviarla
     if (signedTransaction) {
+      console.log('📤 ===== INICIO TRANSFERENCIA FIRMADA =====');
       console.log('📤 Enviando transacción firmada...');
       console.log('📤 SignedTransaction type:', typeof signedTransaction);
       console.log('📤 SignedTransaction length:', signedTransaction?.length);
@@ -46,11 +47,21 @@ export async function POST(request: NextRequest) {
       const server = new Horizon.Server(HORIZON_URL);
       
       try {
-        // Usar el XDR directamente sin conversión adicional
-        console.log('📤 Enviando XDR directamente a Horizon...');
+        // Convertir XDR a Transaction object antes de enviar
+        console.log('📤 Convirtiendo XDR a Transaction object...');
+        const transaction = TransactionBuilder.fromXDR(decodedXdr, NETWORK_PASSPHRASE);
+        console.log('📤 Transaction object creado:', !!transaction);
+        console.log('📤 Transaction details:', {
+          source: transaction.source,
+          operations: transaction.operations.length,
+          fee: transaction.fee,
+          sequence: transaction.sequence
+        });
         
-        const result = await server.submitTransaction(decodedXdr);
+        console.log('📤 Enviando transacción a Horizon...');
+        const result = await server.submitTransaction(transaction);
         console.log('📤 Transaction submitted successfully:', result.hash);
+        console.log('📤 ===== TRANSFERENCIA EXITOSA =====');
         
         return NextResponse.json({
           success: true,
@@ -64,6 +75,13 @@ export async function POST(request: NextRequest) {
         });
       } catch (xdrError) {
         console.error('❌ Error procesando XDR:', xdrError);
+        console.error('❌ Error details:', {
+          message: xdrError.message,
+          status: xdrError.response?.status,
+          data: xdrError.response?.data
+        });
+        console.error('❌ Result codes:', xdrError.response?.data?.extras?.result_codes);
+        console.error('❌ Result XDR:', xdrError.response?.data?.extras?.result_xdr);
         throw new Error(`Error procesando transacción XDR: ${xdrError.message}`);
       }
     }
@@ -80,6 +98,9 @@ export async function POST(request: NextRequest) {
     
     console.log(`💸 Transfiriendo ${amount} XLM desde Meridian a ${toAccount}`);
     console.log(`📝 Memo: "${truncatedMemo}"`);
+    console.log(`🔍 Amount type:`, typeof amount);
+    console.log(`🔍 Amount value:`, amount);
+    console.log(`🔍 Amount toString:`, amount.toString());
 
     // 1. Crear servidor de Horizon
     const server = new Horizon.Server(HORIZON_URL);

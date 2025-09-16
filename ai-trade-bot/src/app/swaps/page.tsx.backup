@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import { useWallet } from '@/contexts/WalletContext';
 import { WalletNetwork } from '@creit.tech/stellar-wallets-kit';
 
@@ -184,8 +183,7 @@ export default function SwapsPage() {
         });
         setTransactionHash(submitData.data.hash);
         setShowConfirmation(true);
-        setSwapStatus(''); // Limpiar el estado de swap
-        setIsExecuting(false); // Resetear estado de carga
+        setSwapStatus(`✅ Swap exitoso! Hash: ${submitData.data.hash.substring(0, 8)}...`);
         return;
       }
 
@@ -219,8 +217,7 @@ export default function SwapsPage() {
         });
         setTransactionHash(submitData.data?.hash || submitData.hash);
         setShowConfirmation(true);
-        setSwapStatus(''); // Limpiar el estado de swap
-        setIsExecuting(false); // Resetear estado de carga
+        setSwapStatus(`✅ Swap exitoso! Hash: ${(submitData.data?.hash || submitData.hash).substring(0, 8)}...`);
       } else {
         throw new Error(submitData.message || 'Error enviando transacción');
       }
@@ -264,18 +261,13 @@ export default function SwapsPage() {
             <div className="bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-3xl p-8 border border-gray-700/30 shadow-2xl">
               <div className="text-center">
                 <div className="inline-block mb-6">
-                  <div className="w-20 h-20 relative animate-pulse">
-                    <Image
-                      src="/LOGOZZ.png"
-                      alt="ZENTRADE Logo"
-                      fill
-                      className="object-contain"
-                    />
+                  <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center text-4xl animate-pulse">
+                    🔄
                   </div>
                 </div>
                 
                 <h1 className="text-4xl lg:text-6xl font-extrabold text-white mb-6">
-                  <span className="bg-gradient-to-r from-brazil-green to-emerald-400 bg-clip-text text-transparent">ZENTRADE</span> Swaps
+                  Swaps <span className="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Inteligentes</span>
                 </h1>
                 
                 <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto">
@@ -580,7 +572,6 @@ export default function SwapsPage() {
                       setShowConfirmation(false);
                       setSwapResult(null);
                       setTransactionHash('');
-                      setSwapStatus(''); // Limpiar estado de swap
                       setInputAmount('10');
                       setOutputAmount('0');
                       setQuote(null);
@@ -594,7 +585,7 @@ export default function SwapsPage() {
             </div>
           </div>
         )}
-      
+      </div>
     </div>
   );
 }

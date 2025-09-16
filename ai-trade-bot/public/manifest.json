@@ -1,0 +1,39 @@
+{
+  "name": "ZENTRADE - AI Trading Bot",
+  "short_name": "ZENTRADE",
+  "description": "Plataforma de trading automatizado con integración multi-protocolo en Stellar",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#10B981",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/LOGOZZ.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/LOGOZZ.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["finance", "business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Trading",
+      "short_name": "Trading",
+      "description": "Acceso rápido al trading apalancado",
+      "url": "/trading",
+      "icons": [{ "src": "/LOGOZZ.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Swaps",
+      "short_name": "Swaps",
+      "description": "Acceso rápido a los swaps inteligentes",
+      "url": "/swaps",
+      "icons": [{ "src": "/LOGOZZ.png", "sizes": "96x96" }]
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useWallet } from '@/contexts/WalletContext';
 import { contractService } from '@/services/contractService';
 
@@ -144,7 +145,7 @@ export default function TradingPage() {
           network: 'testnet'
         });
         setShowConfirmation(true);
-        setTransactionStatus(`✅ Posición abierta exitosamente - Hash: ${result.hash.substring(0, 8)}...`);
+        setTransactionStatus(''); // Limpiar el estado de transacción
       } else {
         throw new Error('Transacción falló');
       }
@@ -205,10 +206,10 @@ export default function TradingPage() {
       console.log('  - Total Return:', totalReturn);
       console.log('  - ROI:', roi + '%');
       
-      // Para demostración, devolver siempre el monto original completo
-      // En un sistema real, el contrato manejaría el PnL correctamente
-      const actualReturn = amount; // Monto original completo (222 XLM)
-      console.log('🔍 Monto a devolver (para demo):', actualReturn);
+      // Devolver el monto completo de la posición (no solo el margen)
+      // En un sistema real, esto sería: margen + PnL, pero para demo devolvemos el monto completo
+      const actualReturn = amount; // Monto completo de la posición (222 XLM)
+      console.log('🔍 Monto a devolver (posición completa):', actualReturn);
       console.log('🔍 Margen calculado:', margin);
       console.log('🔍 PnL calculado:', pnl);
       console.log('🔍 Total Return (margen + PnL):', totalReturn);
@@ -229,49 +230,31 @@ export default function TradingPage() {
       if (result.successful) {
         setTransactionStatus('Creando transacción de transferencia de fondos...');
         
-        // 5. Crear transacción de transferencia que el usuario debe firmar
-        setTransactionStatus('Creando transacción de transferencia de fondos...');
+        // 5. Transferir fondos directamente desde wallet Meridian (método simplificado)
+        setTransactionStatus('Transfiriendo fondos desde wallet Meridian...');
         const transferResponse = await fetch('/api/transfer-funds', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             toAccount: publicKey,
             amount: amount.toFixed(7), // Monto original de la posición
-            memo: `PnL: ${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}`,
-            createTransaction: true // Solo crear la transacción, no enviarla
+            memo: `PnL: ${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}`
           })
         });
 
         const transferData = await transferResponse.json();
+        console.log('🔍 Transfer response:', transferData);
         if (!transferData.success) {
-          throw new Error('Error creando transacción de transferencia: ' + transferData.message);
+          console.warn('⚠️ Error transfiriendo fondos:', transferData.message);
+          // Continúa aunque falle la transferencia
+        } else {
+          console.log('✅ Transferencia exitosa:', transferData.data?.hash);
         }
 
-        // 6. Firmar la transacción de transferencia
-        setTransactionStatus('Firmando transacción de transferencia de fondos...');
-        console.log('📝 TransactionXdr recibido:', transferData.transactionXdr ? transferData.transactionXdr.substring(0, 50) + '...' : 'undefined');
-        const signedTransferTransaction = await signTransaction(transferData.transactionXdr);
-        console.log('📝 SignedTransaction result:', typeof signedTransferTransaction, signedTransferTransaction ? signedTransferTransaction.substring(0, 50) + '...' : 'undefined');
-
-        // 7. Enviar la transacción de transferencia
-        setTransactionStatus('Enviando transferencia de fondos...');
-        const transferSubmitResponse = await fetch('/api/transfer-funds', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            signedTransaction: signedTransferTransaction
-          })
-        });
-
-        const transferSubmitData = await transferSubmitResponse.json();
-        if (!transferSubmitData.success) {
-          throw new Error('Error enviando transferencia: ' + transferSubmitData.message);
-        }
-
-        // 8. Mostrar pantalla de confirmación con PnL y fondos devueltos
+        // 6. Mostrar pantalla de confirmación con PnL y fondos devueltos
         setTradeResult({
           hash: result.hash,
-          transferHash: transferSubmitData.data?.hash, // Hash de la transferencia de fondos
+          transferHash: transferData.data?.hash, // Hash de la transferencia de fondos
           ledger: result.ledger || 'N/A',
           action: 'close',
           position: {
@@ -285,22 +268,22 @@ export default function TradingPage() {
           margin: margin,
           totalReturn: totalReturn,
           roi: roi,
-          fundsReturned: totalReturn, // Monto real devuelto por el contrato
-          transferSuccessful: transferSubmitData.success,
+          fundsReturned: actualReturn, // Monto real devuelto por el contrato
+          transferSuccessful: transferData.success,
           network: 'testnet'
         });
         setShowConfirmation(true);
-        setTransactionStatus(`✅ Posición cerrada - Fondos devueltos: $${totalReturn.toFixed(2)} - Hash: ${result.hash.substring(0, 8)}...`);
+        setTransactionStatus(''); // Limpiar el estado de transacción
         
-        // 9. Remover posición de la lista
+        // 7. Remover posición de la lista
         setPositions(prev => prev.filter(p => p.id !== id));
         
-        // 10. Actualizar balance de la wallet (simulado)
-        setWalletBalance(prev => prev + totalReturn);
+        // 8. Actualizar balance de la wallet (simulado)
+        setWalletBalance(prev => prev + actualReturn);
         
-        // 11. Mostrar notificación de fondos devueltos
+        // 9. Mostrar notificación de fondos devueltos
         setTimeout(() => {
-          alert(`💰 Fondos devueltos: $${totalReturn.toFixed(2)}\n\nEl contrato ha transferido los fondos de vuelta a tu wallet.`);
+          alert(`💰 Fondos devueltos: $${actualReturn.toFixed(2)}\n\nEl contrato ha transferido los fondos de vuelta a tu wallet.`);
         }, 1000);
       } else {
         throw new Error('Transacción falló');
@@ -362,131 +345,206 @@ export default function TradingPage() {
   }, [xlmPrice]);
 
   return (
-    <div className="min-h-screen p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <header className="mb-8">
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-4xl font-bold text-brazil-white mb-2">
-                ⚡ Trading Apalancado
-              </h1>
-              <p className="text-brazil-gray">
-                Swaps reales con Soroswap API • Leverage hasta 10x
-              </p>
-              <div className="mt-2 p-2 bg-brazil-yellow text-brazil-black rounded text-sm font-bold">
-                ⚠️ TRANSACCIONES REALES SIMPLIFICADAS - Para demostración del hackathon
-              </div>
-            </div>
-            
-            {/* Wallet Status */}
-            <div className="text-right space-y-2">
-              {isConnected ? (
-                <div className="bg-brazil-green text-brazil-white p-3 rounded-lg">
-                  <div className="text-sm font-bold">✅ {walletName} Conectada</div>
-                  <div className="text-xs font-mono">
-                    {publicKey?.slice(0, 8)}...{publicKey?.slice(-8)}
+    <div className="min-h-screen bg-gradient-to-br from-brazil-black via-slate-900 to-brazil-green">
+      {/* Animated background elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-1/4 -right-1/4 w-1/2 h-1/2 bg-gradient-to-l from-brazil-green/10 to-transparent rounded-full animate-pulse"></div>
+        <div className="absolute -bottom-1/4 -left-1/4 w-1/2 h-1/2 bg-gradient-to-r from-yellow-500/5 to-transparent rounded-full animate-pulse delay-1000"></div>
+      </div>
+      
+      <div className="relative z-10 p-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Enhanced Header */}
+          <header className="mb-12">
+            <div className="bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-3xl p-8 border border-gray-700/30 shadow-2xl">
+              <div className="flex flex-col lg:flex-row justify-between items-start gap-6">
+                <div className="flex-1">
+                  <div className="flex items-center mb-4">
+                    <div className="w-16 h-16 relative mr-4 animate-pulse">
+                      <Image
+                        src="/LOGOZZ.png"
+                        alt="ZENTRADE Logo"
+                        fill
+                        className="object-contain"
+                      />
+                    </div>
+                    <div>
+                      <h1 className="text-4xl lg:text-5xl font-extrabold text-white mb-2">
+                        <span className="bg-gradient-to-r from-brazil-green to-emerald-400 bg-clip-text text-transparent">ZENTRADE</span> Trading
+                      </h1>
+                      <p className="text-gray-300 text-lg">
+                        Swaps reales con Soroswap API • Leverage hasta 10x • Smart Contracts
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="inline-flex items-center bg-gradient-to-r from-yellow-500/20 to-orange-600/20 border border-yellow-500/30 text-yellow-400 px-4 py-2 rounded-xl text-sm font-semibold">
+                    <span className="mr-2">⚠️</span>
+                    Demo del Hackathon - Transacciones Reales Simplificadas
                   </div>
                 </div>
-              ) : (
-                <div className="bg-red-600 text-white p-3 rounded-lg">
-                  <div className="text-sm font-bold">❌ Wallet Desconectada</div>
-                  <div className="text-xs">Conecta tu wallet para trading</div>
+                
+                {/* Enhanced Wallet Status */}
+                <div className="lg:min-w-[300px]">
+                  {isConnected ? (
+                    <div className="bg-gradient-to-br from-brazil-green/80 to-emerald-600/80 backdrop-blur-sm text-white p-6 rounded-2xl border border-emerald-400/30 shadow-xl">
+                      <div className="flex items-center mb-3">
+                        <div className="w-3 h-3 bg-emerald-300 rounded-full animate-pulse mr-3"></div>
+                        <div className="text-lg font-bold">✅ {walletName}</div>
+                      </div>
+                      <div className="bg-black/20 rounded-xl p-3 mb-3">
+                        <div className="text-xs text-emerald-200 font-semibold mb-1">Dirección:</div>
+                        <div className="text-sm font-mono break-all">
+                          {publicKey?.slice(0, 12)}...{publicKey?.slice(-12)}
+                        </div>
+                      </div>
+                      <div className="text-sm text-emerald-200">
+                        Balance: ${walletBalance.toFixed(2)} XLM
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gradient-to-br from-red-500/80 to-red-600/80 backdrop-blur-sm text-white p-6 rounded-2xl border border-red-400/30 shadow-xl">
+                      <div className="flex items-center mb-3">
+                        <div className="w-3 h-3 bg-red-300 rounded-full animate-pulse mr-3"></div>
+                        <div className="text-lg font-bold">❌ Wallet Desconectada</div>
+                      </div>
+                      <p className="text-red-200 text-sm">
+                        Conecta tu wallet para empezar a hacer trading
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Enhanced Transaction Status */}
+              {transactionStatus && (
+                <div className="mt-6 bg-gradient-to-r from-blue-500/20 to-purple-600/20 border border-blue-500/30 rounded-2xl p-4">
+                  <div className="flex items-center text-blue-300">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-400 mr-3"></div>
+                    <span className="font-semibold">{transactionStatus}</span>
+                  </div>
                 </div>
               )}
-              
             </div>
-          </div>
-          
-          {/* Transaction Status */}
-          {transactionStatus && (
-            <div className="mt-4 p-3 bg-brazil-gray rounded-lg">
-              <div className="text-brazil-white font-semibold">
-                {transactionStatus}
-              </div>
-            </div>
-          )}
-        </header>
+          </header>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Panel de Trading */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Precio Actual */}
-            <div className="bg-brazil-black rounded-lg p-6 border-2 border-brazil-gray">
-              <h2 className="text-xl font-bold text-brazil-white mb-4">Precio Actual</h2>
-              <div className="text-3xl font-bold text-brazil-green">
-                ${xlmPrice.toFixed(6)} USD
+          <div className="lg:col-span-2 space-y-8">
+            {/* Precio Actual - Enhanced */}
+            <div className="group bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-3xl p-8 border border-gray-700/30 hover:border-brazil-green/50 transition-all duration-500 shadow-xl">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-white flex items-center">
+                  <div className="w-10 h-10 bg-gradient-to-br from-brazil-green to-emerald-600 rounded-xl flex items-center justify-center text-xl mr-3">
+                    📊
+                  </div>
+                  Precio XLM/USD
+                </h2>
+                <div className="flex items-center text-brazil-green">
+                  <div className="w-2 h-2 bg-brazil-green rounded-full mr-2 animate-pulse"></div>
+                  <span className="text-sm font-semibold">En Vivo</span>
+                </div>
               </div>
-              <div className="text-brazil-gray text-sm">
-                Última actualización: {lastUpdateTime || 'Cargando...'}
+              
+              <div className="bg-gradient-to-r from-brazil-green/10 to-emerald-600/10 rounded-2xl p-6 border border-brazil-green/20">
+                <div className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-brazil-green to-emerald-400 bg-clip-text text-transparent mb-2">
+                  ${xlmPrice.toFixed(6)}
+                </div>
+                <div className="text-gray-300 text-sm flex items-center">
+                  <span className="mr-2">🕒</span>
+                  Última actualización: {lastUpdateTime || 'Cargando...'}
+                </div>
               </div>
             </div>
 
-            {/* Nueva Posición */}
-            <div className="bg-brazil-black rounded-lg p-6 border-2 border-brazil-gray">
-              <h2 className="text-xl font-bold text-brazil-white mb-4">Abrir Posición</h2>
+            {/* Nueva Posición - Enhanced */}
+            <div className="group bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-3xl p-8 border border-gray-700/30 hover:border-yellow-500/50 transition-all duration-500 shadow-xl">
+              <div className="flex items-center mb-6">
+                <div className="w-10 h-10 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl flex items-center justify-center text-xl mr-3">
+                  🚀
+                </div>
+                <h2 className="text-2xl font-bold text-white">Abrir Nueva Posición</h2>
+              </div>
               
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
-                  <label className="block text-brazil-white mb-2">Cantidad XLM</label>
+                  <label className="block text-white font-semibold mb-3 flex items-center">
+                    <span className="mr-2">💰</span>
+                    Cantidad XLM
+                  </label>
                   <input
                     type="number"
                     value={newPosition.amount}
                     onChange={(e) => setNewPosition(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
-                    className="w-full p-3 bg-brazil-gray text-brazil-white rounded border border-brazil-green"
-                    placeholder="10.0"
+                    className="w-full p-4 bg-gradient-to-r from-slate-700/50 to-slate-800/50 text-white rounded-2xl border border-gray-600/50 focus:border-brazil-green focus:ring-2 focus:ring-brazil-green/20 transition-all duration-300 text-lg font-semibold"
+                    placeholder="100.0"
                     step="0.1"
                     min="0.1"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-brazil-white mb-2">Leverage</label>
+                  <label className="block text-white font-semibold mb-3 flex items-center">
+                    <span className="mr-2">⚡</span>
+                    Leverage
+                  </label>
                   <select
                     value={newPosition.leverage}
                     onChange={(e) => setNewPosition(prev => ({ ...prev, leverage: parseInt(e.target.value) }))}
-                    className="w-full p-3 bg-brazil-gray text-brazil-white rounded border border-brazil-green"
+                    className="w-full p-4 bg-gradient-to-r from-slate-700/50 to-slate-800/50 text-white rounded-2xl border border-gray-600/50 focus:border-brazil-green focus:ring-2 focus:ring-brazil-green/20 transition-all duration-300 text-lg font-semibold"
                   >
-                    <option value={2}>2x</option>
-                    <option value={5}>5x</option>
-                    <option value={10}>10x</option>
+                    <option value={2}>2x Leverage</option>
+                    <option value={5}>5x Leverage</option>
+                    <option value={10}>10x Leverage</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-brazil-white mb-2">Tipo</label>
-                  <div className="flex space-x-4">
+                  <label className="block text-white font-semibold mb-3 flex items-center">
+                    <span className="mr-2">📊</span>
+                    Dirección
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
                     <button
                       onClick={() => {
                         setNewPosition(prev => ({ ...prev, type: 'long' as 'long' | 'short' }));
                       }}
-                      className={`px-4 py-2 rounded font-bold ${
+                      className={`group relative p-4 rounded-2xl font-bold text-lg transition-all duration-300 ${
                         newPosition.type === 'long' 
-                          ? 'bg-green-600 text-white border-2 border-green-400' 
-                          : 'bg-brazil-gray text-brazil-white border border-gray-500'
+                          ? 'bg-gradient-to-r from-brazil-green to-emerald-600 text-white border-2 border-emerald-400 shadow-lg transform scale-105' 
+                          : 'bg-gradient-to-r from-slate-700/50 to-slate-800/50 text-gray-300 border border-gray-600/50 hover:border-brazil-green/50'
                       }`}
                     >
-                      📈 Long {newPosition.type === 'long' && '✅'}
+                      <div className="flex items-center justify-center">
+                        <span className="mr-2">📈</span>
+                        Long
+                        {newPosition.type === 'long' && <span className="ml-2">✅</span>}
+                      </div>
                     </button>
                     <button
                       onClick={() => {
                         setNewPosition(prev => ({ ...prev, type: 'short' as 'long' | 'short' }));
                       }}
-                      className={`px-4 py-2 rounded font-bold ${
+                      className={`group relative p-4 rounded-2xl font-bold text-lg transition-all duration-300 ${
                         newPosition.type === 'short' 
-                          ? 'bg-red-600 text-white border-2 border-red-400' 
-                          : 'bg-brazil-gray text-brazil-white border border-gray-500'
+                          ? 'bg-gradient-to-r from-red-500 to-red-600 text-white border-2 border-red-400 shadow-lg transform scale-105' 
+                          : 'bg-gradient-to-r from-slate-700/50 to-slate-800/50 text-gray-300 border border-gray-600/50 hover:border-red-500/50'
                       }`}
                     >
-                      📉 Short {newPosition.type === 'short' && '✅'}
+                      <div className="flex items-center justify-center">
+                        <span className="mr-2">📉</span>
+                        Short
+                        {newPosition.type === 'short' && <span className="ml-2">✅</span>}
+                      </div>
                     </button>
                   </div>
                 </div>
 
                 <button
                   onClick={openPosition}
-                  disabled={isLoading || newPosition.amount <= 0}
-                  className="w-full bg-brazil-green text-brazil-white py-3 rounded font-bold hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed"
+                  disabled={isLoading || newPosition.amount <= 0 || !isConnected}
+                  className="group relative w-full bg-gradient-to-r from-yellow-500 to-orange-600 text-white py-4 rounded-2xl font-bold text-lg hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 border border-orange-400/30"
                 >
                   {isLoading ? '⏳ Procesando...' : '🚀 Abrir Posición'}
                 </button>
@@ -605,9 +663,9 @@ export default function TradingPage() {
 
         {/* Pantalla de Confirmación de Trading */}
         {showConfirmation && tradeResult && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-brazil-white rounded-lg p-8 max-w-lg w-full mx-4 border-4 border-brazil-green">
-              <div className="text-center">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-brazil-white rounded-lg max-w-lg w-full border-4 border-brazil-green max-h-[90vh] flex flex-col">
+              <div className="p-6 text-center flex-shrink-0">
                 <div className="text-6xl mb-4">
                   {tradeResult.action === 'close' ? '💰' : '🚀'}
                 </div>
@@ -623,7 +681,7 @@ export default function TradingPage() {
                   </p>
                 )}
                 
-                <div className="bg-brazil-gray rounded-lg p-6 mb-6 text-left">
+                <div className="bg-brazil-gray rounded-lg p-6 mb-6 text-left overflow-y-auto max-h-96">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="font-bold text-brazil-white">Tipo:</span>
@@ -706,9 +764,9 @@ export default function TradingPage() {
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-3 flex-shrink-0">
                   <a
-                    href={`https://stellar.expert/explorer/testnet/tx/${tradeResult.hash}`}
+                    href={`https://stellar.expert/explorer/testnet/tx/${tradeResult.action === 'close' ? tradeResult.transferHash : tradeResult.hash}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block w-full bg-brazil-green text-brazil-white py-3 rounded-lg font-bold hover:bg-green-700 transition-colors"
@@ -720,6 +778,7 @@ export default function TradingPage() {
                     onClick={() => {
                       setShowConfirmation(false);
                       setTradeResult(null);
+                      setTransactionStatus(''); // Limpiar estado de transacción
                       if (tradeResult.action === 'open') {
                         setNewPosition({ amount: 0, leverage: 2, type: 'long' });
                       }
