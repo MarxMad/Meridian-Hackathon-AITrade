@@ -121,7 +121,7 @@ export default function TradingPage() {
         setNewPosition({ amount: 0, leverage: 2, type: 'long' });
         setTransactionStatus('✅ Posición abierta exitosamente');
         
-        alert(`✅ Posición ${newPosition.type} abierta con leverage ${newPosition.leverage}x (SIMULADO)`);
+        alert(`✅ Posición ${newPosition.type} abierta con leverage ${newPosition.leverage}x - Hash: ${result.hash} (DEMO)`);
       } else {
         throw new Error('Transacción falló');
       }
@@ -159,7 +159,7 @@ export default function TradingPage() {
       if (result.successful) {
         setPositions(prev => prev.filter(p => p.id !== id));
         setTransactionStatus('✅ Posición cerrada exitosamente');
-        alert('✅ Posición cerrada (SIMULADO)');
+        alert(`✅ Posición cerrada - Hash: ${result.hash} (DEMO)`);
       } else {
         throw new Error('Transacción falló');
       }
@@ -172,12 +172,40 @@ export default function TradingPage() {
     }
   };
 
+  // Obtener posiciones reales del contrato
+  const fetchRealPositions = async () => {
+    if (!isConnected || !publicKey) return;
+    
+    try {
+      setTransactionStatus('Obteniendo posiciones del contrato...');
+      const transactionXdr = await contractService.getTraderPositions(publicKey);
+      
+      // Firmar y enviar consulta
+      const signedTransaction = await signTransaction(transactionXdr);
+      const result = await contractService.submitTransaction(signedTransaction);
+      
+      if (result.successful) {
+        console.log('✅ Posiciones obtenidas del contrato:', result);
+        // Aquí procesarías los datos reales del contrato
+      }
+    } catch (error) {
+      console.error('Error obteniendo posiciones:', error);
+    }
+  };
+
   // Actualizar precios
   useEffect(() => {
     fetchXlmPrice();
     const interval = setInterval(fetchXlmPrice, 30000); // Cada 30 segundos
     return () => clearInterval(interval);
   }, []);
+
+  // Obtener posiciones reales cuando se conecta la wallet
+  useEffect(() => {
+    if (isConnected && publicKey) {
+      fetchRealPositions();
+    }
+  }, [isConnected, publicKey]);
 
   // Actualizar PnL de posiciones
   useEffect(() => {
@@ -204,7 +232,7 @@ export default function TradingPage() {
                 Swaps reales con Soroswap API • Leverage hasta 10x
               </p>
               <div className="mt-2 p-2 bg-brazil-yellow text-brazil-black rounded text-sm font-bold">
-                ⚠️ MODO SIMULACIÓN - Las transacciones son simuladas para demostración
+                ⚠️ MODO DEMOSTRACIÓN - Transacciones simuladas para el hackathon
               </div>
             </div>
             

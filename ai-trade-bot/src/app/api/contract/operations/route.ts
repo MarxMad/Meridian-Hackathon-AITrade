@@ -14,19 +14,22 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log(`🔧 Creando operación: ${operation} para cuenta: ${sourceAccount}`);
+    console.log(`🔧 Creando transacción: ${operation} para cuenta: ${sourceAccount}`);
 
-    // Crear estructura de transacción básica
+    // Crear estructura de transacción básica para demostración
     const transactionData = {
       sourceAccount,
       operation,
       contractId: CONTRACT_ID,
       network: 'testnet',
-      params: params
+      params: params,
+      timestamp: new Date().toISOString()
     };
 
-    // Simular creación de transacción (en un caso real, esto se haría con Stellar SDK)
-    const mockTransactionXdr = `mock_transaction_${Date.now()}_${operation}`;
+    // Simular creación de transacción XDR
+    const mockTransactionXdr = `AAAA${Buffer.from(JSON.stringify(transactionData)).toString('base64')}`;
+
+    console.log(`✅ Transacción ${operation} creada exitosamente`);
 
     return NextResponse.json({
       success: true,

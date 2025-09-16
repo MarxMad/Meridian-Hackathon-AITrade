@@ -60,6 +60,31 @@ export class ContractService {
     }
   }
 
+  // Ejecutar consulta de solo lectura
+  async executeQuery(query: string, sourceAccount?: string): Promise<string> {
+    try {
+      const response = await fetch('/api/contract/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          sourceAccount
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || 'Error ejecutando consulta');
+      }
+
+      return result.data.transactionXdr;
+    } catch (error) {
+      console.error('Error ejecutando consulta:', error);
+      throw error;
+    }
+  }
+
   // Formatear argumentos para la API
   private formatArgs(args: any[]): any {
     const formatted: any = {};
@@ -126,32 +151,50 @@ export class ContractService {
 
   // Obtener posiciones del trader
   async getTraderPositions(sourceAccount: string): Promise<string> {
-    return this.createContractInvokeTransaction(
-      sourceAccount,
-      'get_my_positions',
-      []
-    );
+    return this.executeQuery('get_my_positions', sourceAccount);
   }
 
   // Obtener precio actual
   async getCurrentPrice(): Promise<string> {
-    // Usar una cuenta dummy para consultas de solo lectura
-    const dummyAccount = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
-    return this.createContractInvokeTransaction(
-      dummyAccount,
-      'get_current_price',
-      []
-    );
+    return this.executeQuery('get_current_price');
   }
 
   // Obtener estadísticas globales
   async getGlobalStats(): Promise<string> {
-    const dummyAccount = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
-    return this.createContractInvokeTransaction(
-      dummyAccount,
-      'get_global_stats',
-      []
-    );
+    return this.executeQuery('get_global_stats');
+  }
+
+  // Crear transacción de pago (para TransferModal)
+  async createPaymentTransaction(
+    sourceAccount: string,
+    destination: string,
+    amount: string,
+    asset: string = 'XLM'
+  ): Promise<string> {
+    try {
+      const response = await fetch('/api/contract/operations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          operation: 'payment',
+          sourceAccount,
+          destination,
+          amount,
+          asset
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || 'Error creando transacción de pago');
+      }
+
+      return result.data.transactionXdr;
+    } catch (error) {
+      console.error('Error creando transacción de pago:', error);
+      throw error;
+    }
   }
 }
 
