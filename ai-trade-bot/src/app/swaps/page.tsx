@@ -21,6 +21,9 @@ export default function SwapsPage() {
   const [isExecuting, setIsExecuting] = useState(false);
   const [swapStatus, setSwapStatus] = useState<string>('');
   const [xlmPrice, setXlmPrice] = useState<number>(0);
+  const [transactionHash, setTransactionHash] = useState<string>('');
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [swapResult, setSwapResult] = useState<any>(null);
 
   // Obtener precio de XLM
   const fetchXlmPrice = async () => {
@@ -52,8 +55,10 @@ export default function SwapsPage() {
         setQuote(data.data);
         // Calcular cantidad de salida aproximada
         if (data.data.quote && data.data.quote.amountOut) {
+          // USDC tiene 6 decimales, no 7 como XLM
           const outputAmount = (parseInt(data.data.quote.amountOut) / 1_000_000).toFixed(6);
           setOutputAmount(outputAmount);
+          console.log(`📊 Conversión output: ${data.data.quote.amountOut} stroops = ${outputAmount} USDC`);
         }
       } else {
         console.error('Error obteniendo cotización:', data.message);
@@ -119,7 +124,14 @@ export default function SwapsPage() {
           throw new Error('Error creando trustline: ' + (trustlineSubmitData.message || trustlineSubmitData.error));
         }
 
-        setSwapStatus('✅ Trustline creada! Ahora ejecutando swap...');
+        // Mostrar hash de trustline
+        const trustlineHash = trustlineSubmitData.data?.hash;
+        if (trustlineHash) {
+          setTransactionHash(trustlineHash);
+          setSwapStatus(`✅ Trustline creada! Hash: ${trustlineHash.substring(0, 8)}...`);
+        } else {
+          setSwapStatus('✅ Trustline creada! Ahora ejecutando swap...');
+        }
         
         // Esperar un momento y luego intentar el swap nuevamente
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -161,13 +173,17 @@ export default function SwapsPage() {
           throw new Error(submitData.message || submitData.error || 'Error ejecutando swap');
         }
 
-        setSwapStatus(`✅ Swap exitoso! Hash: ${submitData.data.hash}`);
-        alert(`✅ Swap ejecutado exitosamente! Hash: ${submitData.data.hash}`);
-
-        // Resetear estado
-        setInputAmount('10');
-        setOutputAmount('0');
-        setQuote(null);
+        // Mostrar pantalla de confirmación
+        setSwapResult({
+          hash: submitData.data.hash,
+          ledger: submitData.data.ledger,
+          amount: session.amount,
+          outputAmount: outputAmount,
+          network: 'testnet'
+        });
+        setTransactionHash(submitData.data.hash);
+        setShowConfirmation(true);
+        setSwapStatus(`✅ Swap exitoso! Hash: ${submitData.data.hash.substring(0, 8)}...`);
         return;
       }
 
@@ -191,12 +207,17 @@ export default function SwapsPage() {
 
       const submitData = await submitResponse.json();
       if (submitData.success) {
-        setSwapStatus('✅ Swap ejecutado exitosamente');
-        alert(`✅ Swap completado! Hash: ${submitData.hash}`);
-        // Limpiar formulario
-        setInputAmount('10');
-        setOutputAmount('0');
-        setQuote(null);
+        // Mostrar pantalla de confirmación
+        setSwapResult({
+          hash: submitData.data?.hash || submitData.hash,
+          ledger: submitData.data?.ledger || 'N/A',
+          amount: inputAmount,
+          outputAmount: outputAmount,
+          network: 'testnet'
+        });
+        setTransactionHash(submitData.data?.hash || submitData.hash);
+        setShowConfirmation(true);
+        setSwapStatus(`✅ Swap exitoso! Hash: ${(submitData.data?.hash || submitData.hash).substring(0, 8)}...`);
       } else {
         throw new Error(submitData.message || 'Error enviando transacción');
       }
@@ -370,6 +391,68 @@ export default function SwapsPage() {
             </p>
           </div>
         </div>
+
+        {/* Pantalla de Confirmación */}
+        {showConfirmation && swapResult && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-brazil-white rounded-lg p-8 max-w-md w-full mx-4 border-4 border-brazil-green">
+              <div className="text-center">
+                <div className="text-6xl mb-4">✅</div>
+                <h2 className="text-2xl font-bold text-brazil-black mb-4">
+                  ¡Swap Exitoso!
+                </h2>
+                
+                <div className="bg-brazil-gray rounded-lg p-4 mb-6 text-left">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-bold text-brazil-white">Cantidad:</span>
+                      <div className="text-brazil-yellow">{swapResult.amount} XLM</div>
+                    </div>
+                    <div>
+                      <span className="font-bold text-brazil-white">Recibes:</span>
+                      <div className="text-brazil-yellow">{swapResult.outputAmount} USDC</div>
+                    </div>
+                    <div>
+                      <span className="font-bold text-brazil-white">Hash:</span>
+                      <div className="text-brazil-yellow font-mono text-xs break-all">
+                        {swapResult.hash}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="font-bold text-brazil-white">Ledger:</span>
+                      <div className="text-brazil-yellow">{swapResult.ledger}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <a
+                    href={`https://stellar.expert/explorer/testnet/tx/${swapResult.hash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full bg-brazil-green text-brazil-white py-3 rounded-lg font-bold hover:bg-green-700 transition-colors"
+                  >
+                    🔍 Ver en Explorador
+                  </a>
+                  
+                  <button
+                    onClick={() => {
+                      setShowConfirmation(false);
+                      setSwapResult(null);
+                      setTransactionHash('');
+                      setInputAmount('10');
+                      setOutputAmount('0');
+                      setQuote(null);
+                    }}
+                    className="block w-full bg-brazil-gray text-brazil-white py-3 rounded-lg font-bold hover:bg-gray-600 transition-colors"
+                  >
+                    ✨ Hacer Otro Swap
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

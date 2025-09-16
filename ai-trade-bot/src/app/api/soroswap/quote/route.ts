@@ -34,8 +34,11 @@ export async function POST(request: NextRequest) {
     console.log(`📊 Obteniendo cotización REAL: ${amount} XLM...`);
     console.log('📊 Parámetros:', { amount, assetIn, assetOut });
     
-    // Convertir a stroops
-    const xlmStroops = Math.round(parseFloat(amount) * 1_000_000);
+    // Convertir a stroops (1 XLM = 10,000,000 stroops)
+    const xlmAmount = parseFloat(amount);
+    const xlmStroops = Math.round(xlmAmount * 10_000_000);
+    
+    console.log(`📊 Conversión: ${xlmAmount} XLM = ${xlmStroops} stroops`);
     
     const quoteData = {
       assetIn,
@@ -127,7 +130,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: '✅ Cotización obtenida correctamente desde Soroswap API',
       data: {
-        input_amount_xlm: amount,
+        input_amount_xlm: xlmAmount,
         input_amount_stroops: xlmStroops,
         quote: data,
         network: 'testnet',
