@@ -37,9 +37,9 @@ export async function createRealTransaction(
         const { amount, leverage, positionType } = params;
         
         // Crear una operación de pago simple para demostrar
-        // Usar una cantidad muy pequeña para evitar problemas de balance
+        // Usar la misma cuenta como destino (self-payment) para evitar problemas
         operationToAdd = Operation.payment({
-          destination: 'GCUPLN5Y2N4UNZ76WZLDMVA2MUGWAOWCVPRBU4AJKJFXZLLJCCXI256P', // Cuenta válida
+          destination: sourceAccount, // Enviar a la misma cuenta (self-payment)
           asset: Asset.native(), // XLM como objeto Asset
           amount: '0.0000001' // Cantidad mínima para evitar problemas
         });
@@ -50,18 +50,18 @@ export async function createRealTransaction(
         
         // Crear una operación de pago simple para demostrar
         operationToAdd = Operation.payment({
-          destination: sourceAccount, // Devolver al usuario
+          destination: sourceAccount, // Self-payment
           asset: Asset.native(), // XLM como objeto Asset
-          amount: '1' // Cantidad fija para demo
+          amount: '0.0000001' // Cantidad mínima
         });
         break;
       }
       case 'get_trader_positions': {
         // Crear una operación de pago simple para demostrar
         operationToAdd = Operation.payment({
-          destination: sourceAccount, // Devolver al usuario
+          destination: sourceAccount, // Self-payment
           asset: Asset.native(), // XLM como objeto Asset
-          amount: '0.1' // Cantidad pequeña para consulta
+          amount: '0.0000001' // Cantidad mínima
         });
         break;
       }

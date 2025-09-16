@@ -233,7 +233,7 @@ export default function TradingPage() {
                 Swaps reales con Soroswap API • Leverage hasta 10x
               </p>
               <div className="mt-2 p-2 bg-brazil-yellow text-brazil-black rounded text-sm font-bold">
-                ⚠️ TRANSACCIONES REALES SIMPLIFICADAS - Para demostración del hackathon
+                ⚠️ TRANSACCIONES REALES - Self-payment para demostración del hackathon
               </div>
             </div>
             
