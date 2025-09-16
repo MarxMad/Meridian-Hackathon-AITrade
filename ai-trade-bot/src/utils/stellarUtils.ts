@@ -29,7 +29,7 @@ export async function createRealTransaction(
     const accountData = await accountResponse.json();
     const account = new Account(accountData.id, accountData.sequence);
 
-    let operationToAdd: Operation;
+    let operationToAdd: any;
 
     // Build operation based on the requested function
     switch (operation) {
@@ -37,11 +37,11 @@ export async function createRealTransaction(
         const { amount, leverage, positionType } = params;
         
         // Crear una operación de pago simple para demostrar
-        // Usar la misma cuenta como destino (self-payment) para evitar problemas
+        // Usar la cuenta Meridian que desplegó el contrato
         operationToAdd = Operation.payment({
-          destination: sourceAccount, // Enviar a la misma cuenta (self-payment)
+          destination: 'GAMV6IM4H6TDV3JS23ZMVSDIIHA4SDTMK5J3GZTJ6UI2LZLIGJWY6BBB', // Cuenta Meridian
           asset: Asset.native(), // XLM como objeto Asset
-          amount: '0.0000001' // Cantidad mínima para evitar problemas
+          amount: (amount as number).toString()
         });
         break;
       }
@@ -50,27 +50,18 @@ export async function createRealTransaction(
         
         // Crear una operación de pago simple para demostrar
         operationToAdd = Operation.payment({
-          destination: sourceAccount, // Self-payment
+          destination: sourceAccount, // Devolver al usuario
           asset: Asset.native(), // XLM como objeto Asset
-          amount: '0.0000001' // Cantidad mínima
+          amount: '1' // Cantidad fija para demo
         });
         break;
       }
       case 'get_trader_positions': {
         // Crear una operación de pago simple para demostrar
         operationToAdd = Operation.payment({
-          destination: sourceAccount, // Self-payment
+          destination: sourceAccount, // Devolver al usuario
           asset: Asset.native(), // XLM como objeto Asset
-          amount: '0.0000001' // Cantidad mínima
-        });
-        break;
-      }
-      case 'payment': {
-        const { destination, amount, asset } = params;
-        operationToAdd = Operation.payment({
-          destination: destination as string,
-          asset: asset === 'XLM' ? Asset.native() : new Asset(asset as string, 'ISSUER'),
-          amount: amount as string
+          amount: '0.1' // Cantidad pequeña para consulta
         });
         break;
       }

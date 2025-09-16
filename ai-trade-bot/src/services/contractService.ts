@@ -78,22 +78,6 @@ export class ContractService {
     }
   }
 
-  // Depositar fondos REAL
-  async depositFunds(
-    publicKey: string,
-    asset: string,
-    amount: number
-  ): Promise<string> {
-    try {
-      return await createRealTransaction(publicKey, 'deposit_funds', {
-        asset,
-        amount,
-      });
-    } catch (error) {
-      console.error('Error en depositFunds:', error);
-      throw error;
-    }
-  }
 
   // Obtener posiciones del trader REAL
   async getTraderPositions(publicKey: string): Promise<string> {
@@ -140,24 +124,6 @@ export class ContractService {
     return this.executeQuery('get_global_stats');
   }
 
-  // Crear transacción de pago REAL (para TransferModal)
-  async createPaymentTransaction(
-    sourceAccount: string,
-    destination: string,
-    amount: string,
-    asset: string = 'XLM'
-  ): Promise<string> {
-    try {
-      return await createRealTransaction(sourceAccount, 'payment', {
-        destination,
-        amount,
-        asset
-      });
-    } catch (error) {
-      console.error('Error creando transacción REAL de pago:', error);
-      throw error;
-    }
-  }
 }
 
 export const contractService = new ContractService();

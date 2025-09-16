@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
 import { contractService } from '@/services/contractService';
-import TransferModal from '@/components/TransferModal';
 
 interface Position {
   id: string;
@@ -29,7 +28,12 @@ export default function TradingPage() {
     type: 'long' as 'long' | 'short'
   });
   const [transactionStatus, setTransactionStatus] = useState<string>('');
-  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
+
+  // Monitorear cambios en el estado de la posición (solo para depuración)
+  // useEffect(() => {
+  //   console.log('🔄 Estado de newPosition cambió:', newPosition);
+  // }, [newPosition]);
 
   // Obtener precio de XLM
   const fetchXlmPrice = async () => {
@@ -38,6 +42,7 @@ export default function TradingPage() {
       const data = await response.json();
       if (data.success) {
         setXlmPrice(data.data.price_usd);
+        setLastUpdateTime(new Date().toLocaleTimeString());
       }
     } catch (error) {
       console.error('Error obteniendo precio:', error);
@@ -62,7 +67,9 @@ export default function TradingPage() {
 
   // Abrir nueva posición
   const openPosition = async () => {
-    if (newPosition.amount <= 0) return;
+    if (newPosition.amount <= 0) {
+      return;
+    }
     if (!isConnected || !publicKey) {
       alert('Por favor conecta tu wallet primero');
       return;
@@ -81,6 +88,7 @@ export default function TradingPage() {
 
       // 2. Crear transacción para abrir posición en el contrato
       setTransactionStatus('Creando transacción de posición...');
+      
       const transactionXdr = await contractService.openPosition(
         publicKey,
         newPosition.amount,
@@ -233,7 +241,7 @@ export default function TradingPage() {
                 Swaps reales con Soroswap API • Leverage hasta 10x
               </p>
               <div className="mt-2 p-2 bg-brazil-yellow text-brazil-black rounded text-sm font-bold">
-                ⚠️ TRANSACCIONES REALES - Self-payment para demostración del hackathon
+                ⚠️ TRANSACCIONES REALES SIMPLIFICADAS - Para demostración del hackathon
               </div>
             </div>
             
@@ -253,14 +261,6 @@ export default function TradingPage() {
                 </div>
               )}
               
-              {isConnected && (
-                <button
-                  onClick={() => setShowTransferModal(true)}
-                  className="bg-brazil-yellow text-brazil-black px-4 py-2 rounded font-bold hover:bg-yellow-400 transition-colors"
-                >
-                  💰 Transferir XLM
-                </button>
-              )}
             </div>
           </div>
           
@@ -284,7 +284,7 @@ export default function TradingPage() {
                 ${xlmPrice.toFixed(6)} USD
               </div>
               <div className="text-brazil-gray text-sm">
-                Última actualización: {new Date().toLocaleTimeString()}
+                Última actualización: {lastUpdateTime || 'Cargando...'}
               </div>
             </div>
 
@@ -323,24 +323,28 @@ export default function TradingPage() {
                   <label className="block text-brazil-white mb-2">Tipo</label>
                   <div className="flex space-x-4">
                     <button
-                      onClick={() => setNewPosition(prev => ({ ...prev, type: 'long' }))}
-                      className={`px-4 py-2 rounded ${
+                      onClick={() => {
+                        setNewPosition(prev => ({ ...prev, type: 'long' as 'long' | 'short' }));
+                      }}
+                      className={`px-4 py-2 rounded font-bold ${
                         newPosition.type === 'long' 
-                          ? 'bg-brazil-green text-brazil-white' 
-                          : 'bg-brazil-gray text-brazil-white'
+                          ? 'bg-green-600 text-white border-2 border-green-400' 
+                          : 'bg-brazil-gray text-brazil-white border border-gray-500'
                       }`}
                     >
-                      📈 Long
+                      📈 Long {newPosition.type === 'long' && '✅'}
                     </button>
                     <button
-                      onClick={() => setNewPosition(prev => ({ ...prev, type: 'short' }))}
-                      className={`px-4 py-2 rounded ${
+                      onClick={() => {
+                        setNewPosition(prev => ({ ...prev, type: 'short' as 'long' | 'short' }));
+                      }}
+                      className={`px-4 py-2 rounded font-bold ${
                         newPosition.type === 'short' 
-                          ? 'bg-red-600 text-white' 
-                          : 'bg-brazil-gray text-brazil-white'
+                          ? 'bg-red-600 text-white border-2 border-red-400' 
+                          : 'bg-brazil-gray text-brazil-white border border-gray-500'
                       }`}
                     >
-                      📉 Short
+                      📉 Short {newPosition.type === 'short' && '✅'}
                     </button>
                   </div>
                 </div>
@@ -465,16 +469,6 @@ export default function TradingPage() {
           </div>
         </div>
       </div>
-      
-      {/* Transfer Modal */}
-      <TransferModal
-        isOpen={showTransferModal}
-        onClose={() => setShowTransferModal(false)}
-        onSuccess={() => {
-          setShowTransferModal(false);
-          // Opcional: refrescar datos
-        }}
-      />
     </div>
   );
 }
