@@ -55,8 +55,8 @@ export default function SwapsPage() {
         setQuote(data.data);
         // Calcular cantidad de salida aproximada
         if (data.data.quote && data.data.quote.amountOut) {
-          // USDC tiene 6 decimales, no 7 como XLM
-          const outputAmount = (parseInt(data.data.quote.amountOut) / 1_000_000).toFixed(6);
+          // USDC en Stellar tiene 7 decimales como XLM (1 USDC = 10,000,000 stroops)
+          const outputAmount = (parseInt(data.data.quote.amountOut) / 10_000_000).toFixed(7);
           setOutputAmount(outputAmount);
           console.log(`📊 Conversión output: ${data.data.quote.amountOut} stroops = ${outputAmount} USDC`);
         }

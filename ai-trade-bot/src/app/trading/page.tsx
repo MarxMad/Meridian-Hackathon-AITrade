@@ -29,6 +29,8 @@ export default function TradingPage() {
   });
   const [transactionStatus, setTransactionStatus] = useState<string>('');
   const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [tradeResult, setTradeResult] = useState<any>(null);
 
   // Monitorear cambios en el estado de la posición (solo para depuración)
   // useEffect(() => {
@@ -126,10 +128,21 @@ export default function TradingPage() {
         };
 
         setPositions(prev => [...prev, position]);
-        setNewPosition({ amount: 0, leverage: 2, type: 'long' });
-        setTransactionStatus('✅ Posición abierta exitosamente');
         
-        alert(`✅ Posición ${newPosition.type} abierta con leverage ${newPosition.leverage}x - Hash: ${result.hash}`);
+        // Mostrar pantalla de confirmación
+        setTradeResult({
+          hash: result.hash,
+          ledger: result.ledger || 'N/A',
+          amount: newPosition.amount,
+          leverage: newPosition.leverage,
+          type: newPosition.type,
+          entryPrice: xlmPrice,
+          margin: margin,
+          liquidationPrice: liquidationPrice,
+          network: 'testnet'
+        });
+        setShowConfirmation(true);
+        setTransactionStatus(`✅ Posición abierta exitosamente - Hash: ${result.hash.substring(0, 8)}...`);
       } else {
         throw new Error('Transacción falló');
       }
@@ -468,6 +481,83 @@ export default function TradingPage() {
             </div>
           </div>
         </div>
+
+        {/* Pantalla de Confirmación de Trading */}
+        {showConfirmation && tradeResult && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-brazil-white rounded-lg p-8 max-w-lg w-full mx-4 border-4 border-brazil-green">
+              <div className="text-center">
+                <div className="text-6xl mb-4">🚀</div>
+                <h2 className="text-2xl font-bold text-brazil-black mb-4">
+                  ¡Posición Abierta Exitosamente!
+                </h2>
+                
+                <div className="bg-brazil-gray rounded-lg p-6 mb-6 text-left">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-bold text-brazil-white">Tipo:</span>
+                      <div className={`text-lg font-bold ${tradeResult.type === 'long' ? 'text-brazil-green' : 'text-red-500'}`}>
+                        {tradeResult.type.toUpperCase()} {tradeResult.leverage}x
+                      </div>
+                    </div>
+                    <div>
+                      <span className="font-bold text-brazil-white">Cantidad:</span>
+                      <div className="text-brazil-yellow">{tradeResult.amount} XLM</div>
+                    </div>
+                    <div>
+                      <span className="font-bold text-brazil-white">Precio Entrada:</span>
+                      <div className="text-brazil-yellow">${tradeResult.entryPrice.toFixed(4)}</div>
+                    </div>
+                    <div>
+                      <span className="font-bold text-brazil-white">Margen:</span>
+                      <div className="text-brazil-yellow">${tradeResult.margin.toFixed(2)}</div>
+                    </div>
+                    <div>
+                      <span className="font-bold text-brazil-white">Liquidation Price:</span>
+                      <div className="text-brazil-yellow">${tradeResult.liquidationPrice.toFixed(4)}</div>
+                    </div>
+                    <div>
+                      <span className="font-bold text-brazil-white">Hash:</span>
+                      <div className="text-brazil-yellow font-mono text-xs break-all">
+                        {tradeResult.hash}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="font-bold text-brazil-white">Ledger:</span>
+                      <div className="text-brazil-yellow">{tradeResult.ledger}</div>
+                    </div>
+                    <div>
+                      <span className="font-bold text-brazil-white">Red:</span>
+                      <div className="text-brazil-yellow">Stellar Testnet</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <a
+                    href={`https://stellar.expert/explorer/testnet/tx/${tradeResult.hash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full bg-brazil-green text-brazil-white py-3 rounded-lg font-bold hover:bg-green-700 transition-colors"
+                  >
+                    🔍 Ver en Explorador
+                  </a>
+                  
+                  <button
+                    onClick={() => {
+                      setShowConfirmation(false);
+                      setTradeResult(null);
+                      setNewPosition({ amount: 0, leverage: 2, type: 'long' });
+                    }}
+                    className="block w-full bg-brazil-gray text-brazil-white py-3 rounded-lg font-bold hover:bg-gray-600 transition-colors"
+                  >
+                    ✨ Abrir Otra Posición
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
