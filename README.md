@@ -70,14 +70,17 @@ cargo build
 ### **Despliegue del Contrato**
 ```bash
 # Compilar el contrato
-cargo build --release
+make build
 
 # Desplegar en testnet
-soroban contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/hello_world.wasm \
-  --source-account <ACCOUNT> \
-  --network testnet
+make deploy
 ```
+
+### **🎉 Contrato Desplegado**
+- **Dirección**: `CAK7WRZOYPW5U754SL64UJKSATYTMXS2XNLDQCQLODAU2N3XIYGT2V4B`
+- **Red**: Stellar Testnet
+- **Hash WASM**: `131bfa6e34db5dd34db0aa44411add2be62e20075cc89884bc70e71b3571fda6`
+- **Explorador**: [Ver en Stellar Expert](https://stellar.expert/explorer/testnet/contract/CAK7WRZOYPW5U754SL64UJKSATYTMXS2XNLDQCQLODAU2N3XIYGT2V4B)
 
 ### **Testing**
 ```bash
@@ -87,6 +90,71 @@ cargo test
 # Tests específicos
 cargo test test_open_position
 cargo test test_auto_trade
+```
+
+### **🧪 Comandos de Prueba del Contrato**
+
+#### **Inicializar el Contrato**
+```bash
+stellar contract invoke \
+  --id CAK7WRZOYPW5U754SL64UJKSATYTMXS2XNLDQCQLODAU2N3XIYGT2V4B \
+  --source Meridian \
+  --network testnet \
+  --send=yes \
+  -- initialize
+```
+
+#### **Configurar API de Soroswap**
+```bash
+stellar contract invoke \
+  --id CAK7WRZOYPW5U754SL64UJKSATYTMXS2XNLDQCQLODAU2N3XIYGT2V4B \
+  --source Meridian \
+  --network testnet \
+  --send=yes \
+  -- set_soroswap_api_key \
+  --api_key '"sk_a4aec292b2c03443f42a09506d6dec231e0f2c8ddfb4f8c1b1177aba17a33eec"'
+```
+
+#### **Obtener Precios**
+```bash
+# Precio de XLM
+stellar contract invoke \
+  --id CAK7WRZOYPW5U754SL64UJKSATYTMXS2XNLDQCQLODAU2N3XIYGT2V4B \
+  --source Meridian \
+  --network testnet \
+  -- get_soroswap_price \
+  --asset '"XLM"'
+
+# Precio de BTC
+stellar contract invoke \
+  --id CAK7WRZOYPW5U754SL64UJKSATYTMXS2XNLDQCQLODAU2N3XIYGT2V4B \
+  --source Meridian \
+  --network testnet \
+  -- get_soroswap_price \
+  --asset '"BTC"'
+```
+
+#### **Abrir Posición de Trading**
+```bash
+stellar contract invoke \
+  --id CAK7WRZOYPW5U754SL64UJKSATYTMXS2XNLDQCQLODAU2N3XIYGT2V4B \
+  --source Meridian \
+  --network testnet \
+  --send=yes \
+  -- open_position \
+  --asset '"XLM"' \
+  --amount 1000 \
+  --position_type '"long"'
+```
+
+#### **Ver Posiciones del Trader**
+```bash
+stellar contract invoke \
+  --id CAK7WRZOYPW5U754SL64UJKSATYTMXS2XNLDQCQLODAU2N3XIYGT2V4B \
+  --source Meridian \
+  --network testnet \
+  -- get_trader_positions \
+  --trader CAK7WRZOYPW5U754SL64UJKSATYTMXS2XNLDQCQLODAU2N3XIYGT2V4B
 ```
 
 ## 📊 **Funcionalidades del Contrato**
@@ -147,10 +215,11 @@ SOROSWAP_FACTORY_ID=your_factory_id
 - [x] Cálculo de PnL
 - [x] Tests completos
 
-### **Fase 2: Integración** 🚧
-- [ ] Integración con Soroswap
+### **Fase 2: Integración** ✅
+- [x] Integración con Soroswap (API key configurada)
+- [x] Sistema de oráculos interno
+- [x] Precios reales desde API
 - [ ] Integración con Reflector
-- [ ] Sistema de oráculos
 - [ ] Transferencias reales de tokens
 
 ### **Fase 3: Agente de IA** 📋
