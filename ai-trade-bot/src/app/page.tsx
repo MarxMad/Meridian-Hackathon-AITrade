@@ -146,20 +146,20 @@ export default function Home() {
           </Link>
         </div>
 
-        {/* Card 3: Swaps Automáticos */}
-        <div className="bg-brazil-black rounded-lg p-6 border-2 border-brazil-gray hover:border-brazil-green transition-colors">
-          <div className="text-3xl mb-4">🔄</div>
-          <h2 className="text-xl font-bold text-brazil-white mb-2">Swaps Automáticos</h2>
-          <p className="text-brazil-gray mb-4">
-            Intercambia XLM ↔ USDC automáticamente usando Soroswap
-          </p>
-          <Link 
-            href="/api/soroswap/quote" 
-            className="inline-block bg-brazil-green text-brazil-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
-          >
-            Hacer Swap
-          </Link>
-        </div>
+                {/* Card 3: Swaps Automáticos */}
+                <div className="bg-brazil-black rounded-lg p-6 border-2 border-brazil-gray hover:border-brazil-green transition-colors">
+                  <div className="text-3xl mb-4">🔄</div>
+                  <h2 className="text-xl font-bold text-brazil-white mb-2">Swaps Automáticos</h2>
+                  <p className="text-brazil-gray mb-4">
+                    Intercambia XLM ↔ USDC automáticamente usando Soroswap
+                  </p>
+                  <Link
+                    href="/swaps"
+                    className="inline-block bg-brazil-green text-brazil-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
+                  >
+                    Hacer Swap
+                  </Link>
+                </div>
 
       </main>
 

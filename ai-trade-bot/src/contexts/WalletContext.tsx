@@ -139,6 +139,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Wallet no conectada o Kit no inicializado');
       }
 
+      if (!transactionXdr) {
+        throw new Error('TransactionXdr es requerido para firmar');
+      }
+
       console.log('🔐 Firmando transacción REAL...', transactionXdr.substring(0, 50) + '...');
 
       const { signedTxXdr } = await kit.signTransaction(transactionXdr, {
