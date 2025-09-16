@@ -19,7 +19,7 @@ interface Position {
 }
 
 export default function TradingPage() {
-  const { isConnected, publicKey, signTransaction } = useWallet();
+  const { isConnected, publicKey, walletName, signTransaction } = useWallet();
   const [xlmPrice, setXlmPrice] = useState<number>(0);
   const [positions, setPositions] = useState<Position[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -121,7 +121,7 @@ export default function TradingPage() {
         setNewPosition({ amount: 0, leverage: 2, type: 'long' });
         setTransactionStatus('✅ Posición abierta exitosamente');
         
-        alert(`✅ Posición ${newPosition.type} abierta con leverage ${newPosition.leverage}x`);
+        alert(`✅ Posición ${newPosition.type} abierta con leverage ${newPosition.leverage}x (SIMULADO)`);
       } else {
         throw new Error('Transacción falló');
       }
@@ -159,7 +159,7 @@ export default function TradingPage() {
       if (result.successful) {
         setPositions(prev => prev.filter(p => p.id !== id));
         setTransactionStatus('✅ Posición cerrada exitosamente');
-        alert('✅ Posición cerrada');
+        alert('✅ Posición cerrada (SIMULADO)');
       } else {
         throw new Error('Transacción falló');
       }
@@ -203,13 +203,16 @@ export default function TradingPage() {
               <p className="text-brazil-gray">
                 Swaps reales con Soroswap API • Leverage hasta 10x
               </p>
+              <div className="mt-2 p-2 bg-brazil-yellow text-brazil-black rounded text-sm font-bold">
+                ⚠️ MODO SIMULACIÓN - Las transacciones son simuladas para demostración
+              </div>
             </div>
             
             {/* Wallet Status */}
             <div className="text-right space-y-2">
               {isConnected ? (
                 <div className="bg-brazil-green text-brazil-white p-3 rounded-lg">
-                  <div className="text-sm font-bold">✅ Wallet Conectada</div>
+                  <div className="text-sm font-bold">✅ {walletName} Conectada</div>
                   <div className="text-xs font-mono">
                     {publicKey?.slice(0, 8)}...{publicKey?.slice(-8)}
                   </div>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useWallet } from "@/contexts/WalletContext";
 
 export default function Home() {
-  const { isConnected, publicKey, connect, disconnect, isLoading, error } = useWallet();
+  const { isConnected, publicKey, walletName, connect, disconnect, isLoading, error } = useWallet();
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8">
       {/* Header con colores de Brasil */}
@@ -31,7 +31,7 @@ export default function Home() {
             <div className="ml-8">
               {isConnected ? (
                 <div className="bg-brazil-green text-brazil-white p-4 rounded-lg">
-                  <div className="text-sm font-bold mb-1">✅ Wallet Conectada</div>
+                  <div className="text-sm font-bold mb-1">✅ {walletName} Conectada</div>
                   <div className="text-xs font-mono break-all">
                     {publicKey?.slice(0, 8)}...{publicKey?.slice(-8)}
                   </div>
@@ -48,7 +48,7 @@ export default function Home() {
                   disabled={isLoading}
                   className="bg-brazil-green text-brazil-white px-6 py-3 rounded-lg font-bold hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
                 >
-                  {isLoading ? '⏳ Conectando...' : '🔗 Conectar Wallet'}
+                  {isLoading ? '⏳ Conectando...' : '🔗 Elegir Wallet'}
                 </button>
               )}
             </div>

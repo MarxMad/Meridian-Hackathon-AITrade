@@ -1,22 +1,5 @@
-import { 
-  Server, 
-  Keypair, 
-  TransactionBuilder, 
-  Operation, 
-  Networks,
-  Asset,
-  BASE_FEE,
-  Memo,
-  MemoType
-} from '@stellar/stellar-sdk';
-
-// Configuración del contrato
-const CONTRACT_ID = 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC';
-const NETWORK_PASSPHRASE = Networks.TESTNET;
-const HORIZON_URL = 'https://horizon-testnet.stellar.org';
-
-// Crear servidor Stellar
-const server = new Server(HORIZON_URL);
+// Servicio del lado del cliente para interactuar con el contrato
+// Todas las operaciones se envían a las API routes del servidor
 
 export interface ContractCall {
   method: string;
@@ -25,14 +8,6 @@ export interface ContractCall {
 }
 
 export class ContractService {
-  private server: Server;
-  private contractId: string;
-
-  constructor() {
-    this.server = server;
-    this.contractId = CONTRACT_ID;
-  }
-
   // Crear transacción para invocar contrato
   async createContractInvokeTransaction(
     sourceAccount: string,
@@ -40,58 +15,25 @@ export class ContractService {
     args: any[] = []
   ): Promise<string> {
     try {
-      // Obtener cuenta fuente
-      const account = await this.server.getAccount(sourceAccount);
-      
-      // Crear transacción
-      const transaction = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: NETWORK_PASSPHRASE,
-      })
-        .addOperation(
-          Operation.invokeContractFunction({
-            contract: this.contractId,
-            function: method,
-            args: args.map(arg => this.convertToXdr(arg))
-          })
-        )
-        .setTimeout(30)
-        .build();
+      const response = await fetch('/api/contract/operations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          operation: method,
+          sourceAccount,
+          ...this.formatArgs(args)
+        })
+      });
 
-      return transaction.toXDR();
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || 'Error creando transacción');
+      }
+
+      return result.data.transactionXdr;
     } catch (error) {
       console.error('Error creando transacción:', error);
-      throw error;
-    }
-  }
-
-  // Crear transacción de pago
-  async createPaymentTransaction(
-    sourceAccount: string,
-    destination: string,
-    amount: string,
-    asset: string = 'XLM'
-  ): Promise<string> {
-    try {
-      const account = await this.server.getAccount(sourceAccount);
-      
-      const transaction = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: NETWORK_PASSPHRASE,
-      })
-        .addOperation(
-          Operation.payment({
-            destination,
-            asset: asset === 'XLM' ? Asset.native() : Asset.fromString(asset),
-            amount: amount
-          })
-        )
-        .setTimeout(30)
-        .build();
-
-      return transaction.toXDR();
-    } catch (error) {
-      console.error('Error creando transacción de pago:', error);
       throw error;
     }
   }
@@ -99,27 +41,44 @@ export class ContractService {
   // Enviar transacción firmada
   async submitTransaction(signedTransaction: string): Promise<any> {
     try {
-      const transaction = TransactionBuilder.fromXDR(signedTransaction, NETWORK_PASSPHRASE);
-      const result = await this.server.submitTransaction(transaction);
-      return result;
+      const response = await fetch('/api/contract/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ signedTransaction })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || 'Error enviando transacción');
+      }
+
+      return result.data;
     } catch (error) {
       console.error('Error enviando transacción:', error);
       throw error;
     }
   }
 
-  // Convertir argumentos a formato XDR
-  private convertToXdr(arg: any): any {
-    if (typeof arg === 'string') {
-      return { string: arg };
-    } else if (typeof arg === 'number') {
-      return { int: arg };
-    } else if (typeof arg === 'boolean') {
-      return { bool: arg };
-    } else if (arg && typeof arg === 'object' && arg.address) {
-      return { address: arg.address };
-    }
-    return arg;
+  // Formatear argumentos para la API
+  private formatArgs(args: any[]): any {
+    const formatted: any = {};
+    
+    args.forEach((arg, index) => {
+      if (typeof arg === 'string') {
+        formatted[`arg${index}`] = arg;
+      } else if (typeof arg === 'number') {
+        formatted[`arg${index}`] = arg;
+      } else if (typeof arg === 'boolean') {
+        formatted[`arg${index}`] = arg;
+      } else if (arg && typeof arg === 'object' && arg.address) {
+        formatted[`arg${index}`] = arg.address;
+      } else {
+        formatted[`arg${index}`] = arg;
+      }
+    });
+
+    return formatted;
   }
 
   // Métodos específicos del contrato de trading
