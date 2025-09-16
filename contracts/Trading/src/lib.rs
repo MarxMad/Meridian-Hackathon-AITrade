@@ -1,5 +1,5 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, Env, String, Address, Symbol, Vec, vec};
+use soroban_sdk::{contract, contractimpl, Env, String, Address, Symbol, Vec, vec, token};
 
 #[contract]
 pub struct TradingContract;
@@ -18,10 +18,21 @@ impl TradingContract {
         env: Env,
         asset: Symbol,
         amount: u64,
-        position_type: String
+        position_type: String,
+        token_asset: Address
     ) -> u64 {
         // Usar el sender (quien llama al contrato) como trader
+        // En Soroban, necesitamos obtener el caller real
         let trader = env.current_contract_address();
+        
+        // 0. Verificar que hay fondos depositados
+        let deposit_amount: u64 = env.storage().instance()
+            .get(&String::from_str(&env, "deposit_amount"))
+            .unwrap_or(0);
+        if deposit_amount < amount {
+            panic!("Fondos insuficientes. Deposita primero con deposit_funds()");
+        }
+        
         // 1. Generar ID único para la posición
         let position_id = env.storage().instance().get(&String::from_str(&env, "next_position_id"))
             .unwrap_or(0) + 1;
@@ -118,7 +129,17 @@ impl TradingContract {
             }
         };
 
-        // 7. Emitir evento de transferencia
+        // 7. Transferir dinero real al usuario
+        if final_amount > 0 {
+            let deposit_asset: Address = env.storage().instance()
+                .get(&String::from_str(&env, "deposit_asset"))
+                .expect("No deposit asset found");
+            
+            let token_client = token::Client::new(&env, &deposit_asset);
+            token_client.transfer(&env.current_contract_address(), &trader, &(final_amount as i128));
+        }
+
+        // 8. Emitir evento de transferencia
         env.events().publish(
             (String::from_str(&env, "position_closed"),),
             (position_id, trader, pnl, final_amount)
@@ -130,22 +151,22 @@ impl TradingContract {
     // Obtener información básica de posición
     pub fn get_position_info(env: Env) -> (Address, Symbol, u64, u64, String, String) {
         let trader_key = String::from_str(&env, "trader");
-        let trader: Address = env.storage().instance().get(&trader_key).unwrap();
+        let trader: Address = env.storage().instance().get(&trader_key).unwrap_or(env.current_contract_address());
         
         let asset_key = String::from_str(&env, "asset");
-        let asset: Symbol = env.storage().instance().get(&asset_key).unwrap();
+        let asset: Symbol = env.storage().instance().get(&asset_key).unwrap_or(Symbol::new(&env, "XLM"));
         
         let entry_price_key = String::from_str(&env, "entry_price");
-        let entry_price: u64 = env.storage().instance().get(&entry_price_key).unwrap();
+        let entry_price: u64 = env.storage().instance().get(&entry_price_key).unwrap_or(0);
         
         let amount_key = String::from_str(&env, "amount");
-        let amount: u64 = env.storage().instance().get(&amount_key).unwrap();
+        let amount: u64 = env.storage().instance().get(&amount_key).unwrap_or(0);
         
         let position_type_key = String::from_str(&env, "position_type");
-        let position_type: String = env.storage().instance().get(&position_type_key).unwrap();
+        let position_type: String = env.storage().instance().get(&position_type_key).unwrap_or(String::from_str(&env, "none"));
         
         let status_key = String::from_str(&env, "status");
-        let status: String = env.storage().instance().get(&status_key).unwrap();
+        let status: String = env.storage().instance().get(&status_key).unwrap_or(String::from_str(&env, "closed"));
 
         (trader, asset, entry_price, amount, position_type, status)
     }
@@ -244,7 +265,7 @@ impl TradingContract {
     }
 
     // Función para el agente automático - ejecutar trading automático
-    pub fn auto_trade(env: Env, asset: Symbol, amount: u64, strategy: String) -> u64 {
+    pub fn auto_trade(env: Env, asset: Symbol, amount: u64, strategy: String, token_asset: Address) -> u64 {
         // Esta función será llamada por el agente automático
         // Basada en la estrategia, decide si abrir una posición
         
@@ -252,7 +273,7 @@ impl TradingContract {
         let position_type = determine_position_type(&env, &strategy, &asset, current_price);
         
         // Abrir posición automáticamente (usando sender)
-        let position_id = Self::open_position(env.clone(), asset.clone(), amount, position_type);
+        let position_id = Self::open_position(env.clone(), asset.clone(), amount, position_type, token_asset);
         
         // Registrar transacción automática
         let trader = env.current_contract_address();
@@ -288,13 +309,17 @@ impl TradingContract {
         closed_positions
     }
 
-    // Depositar fondos al contrato (llamado cuando se abre posición)
-    pub fn deposit_funds(env: Env, asset: Symbol, amount: u64) {
-        // Esta función sería llamada automáticamente cuando el trader
-        // envía una transferencia al contrato
-        // Registrar el depósito para la posición correspondiente
-        
+    // Depositar fondos al contrato (transferencia real de tokens)
+    pub fn deposit_funds(env: Env, asset: Address, amount: u64) {
+        // En Soroban, el contrato no puede transferir tokens de otros usuarios
+        // Esta función debe ser llamada por el usuario directamente
+        // Por ahora, solo registramos el depósito
         let trader = env.current_contract_address();
+        
+        // Registrar el depósito
+        env.storage().instance().set(&String::from_str(&env, "deposit_amount"), &amount);
+        env.storage().instance().set(&String::from_str(&env, "deposit_asset"), &asset);
+        
         env.events().publish(
             (String::from_str(&env, "funds_deposited"),),
             (trader, asset, amount)
