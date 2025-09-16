@@ -6,21 +6,24 @@ const NETWORK_PASSPHRASE = 'Test SDF Network ; September 2015';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { operation, sourceAccount, ...params } = body;
+    const { operation, action, sourceAccount, ...params } = body;
 
-    if (!operation || !sourceAccount) {
+    // Usar 'action' si 'operation' no está presente (compatibilidad con el bot)
+    const operationType = operation || action;
+
+    if (!operationType || !sourceAccount) {
       return NextResponse.json({
         success: false,
-        message: 'Operation and sourceAccount are required'
+        message: 'Operation/action and sourceAccount are required'
       }, { status: 400 });
     }
 
-    console.log(`🔧 Creando transacción REAL: ${operation} para cuenta: ${sourceAccount}`);
+    console.log(`🔧 Creando transacción REAL: ${operationType} para cuenta: ${sourceAccount}`);
 
     // Crear estructura de transacción básica pero realista
     const transactionData = {
       sourceAccount,
-      operation,
+      operation: operationType,
       contractId: CONTRACT_ID,
       network: 'testnet',
       networkPassphrase: NETWORK_PASSPHRASE,
@@ -33,13 +36,13 @@ export async function POST(request: NextRequest) {
     // Crear un XDR válido pero simplificado para demostración
     const mockXdr = `AAAA${Buffer.from(JSON.stringify(transactionData)).toString('base64')}`;
 
-    console.log(`✅ Transacción REAL ${operation} creada exitosamente`);
+    console.log(`✅ Transacción REAL ${operationType} creada exitosamente`);
 
     return NextResponse.json({
       success: true,
-      message: `Transacción REAL ${operation} creada exitosamente`,
-      xdr: mockXdr,
-      operation,
+      message: `Transacción REAL ${operationType} creada exitosamente`,
+      transactionXdr: mockXdr,
+      operation: operationType,
       sourceAccount,
       contractId: CONTRACT_ID,
       network: 'testnet',

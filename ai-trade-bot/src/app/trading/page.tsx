@@ -353,11 +353,12 @@ export default function TradingPage() {
   }, [xlmPrice]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brazil-black via-slate-900 to-brazil-green">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900">
       {/* Animated background elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-1/4 -right-1/4 w-1/2 h-1/2 bg-gradient-to-l from-brazil-green/10 to-transparent rounded-full animate-pulse"></div>
-        <div className="absolute -bottom-1/4 -left-1/4 w-1/2 h-1/2 bg-gradient-to-r from-yellow-500/5 to-transparent rounded-full animate-pulse delay-1000"></div>
+        <div className="absolute -top-1/4 -right-1/4 w-1/2 h-1/2 bg-gradient-to-l from-emerald-500/20 to-transparent rounded-full animate-pulse"></div>
+        <div className="absolute -bottom-1/4 -left-1/4 w-1/2 h-1/2 bg-gradient-to-r from-cyan-500/15 to-transparent rounded-full animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-green-500/10 to-blue-500/10 rounded-full animate-pulse delay-500"></div>
       </div>
       
       <div className="relative z-10 p-8">
@@ -378,7 +379,7 @@ export default function TradingPage() {
                     </div>
                     <div>
                       <h1 className="text-4xl lg:text-5xl font-extrabold text-white mb-2">
-                        <span className="bg-gradient-to-r from-brazil-green to-emerald-400 bg-clip-text text-transparent">ZENTRADE</span> Trading
+                        <span className="bg-gradient-to-r from-emerald-400 via-green-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-lg">ZENTRADE</span> <span className="text-white drop-shadow-lg">Trading</span>
                       </h1>
                       <p className="text-gray-300 text-lg">
                         Swaps reales con Soroswap API • Leverage hasta 10x • Smart Contracts

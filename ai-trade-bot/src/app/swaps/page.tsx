@@ -28,38 +28,56 @@ export default function SwapsPage() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [swapResult, setSwapResult] = useState<any>(null);
 
-  // Obtener precio de XLM
+  // Obtener precio de XLM con manejo robusto de errores
   const fetchXlmPrice = async () => {
     try {
-      console.log('📊 Obteniendo precio de XLM desde CoinGecko...');
+      console.log('📊 Obteniendo precio de XLM...');
       
-      // Pequeño delay para evitar sobrecarga
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Intentar primero nuestra API mejorada
+      const response = await fetch('/api/soroswap/price?asset=XLM&amount=1');
+      const data = await response.json();
       
-      const coingeckoResponse = await fetch('/api/coingecko/price?asset=stellar');
-      const coingeckoData = await coingeckoResponse.json();
-      console.log('📊 Respuesta CoinGecko:', coingeckoData);
-      
-      if (coingeckoData.success) {
-        console.log('✅ Precio XLM desde CoinGecko:', coingeckoData.data.price);
-        setXlmPrice(coingeckoData.data.price);
-      } else {
-        console.log('❌ CoinGecko falló, usando precio de fallback');
-        // Usar un precio más realista como fallback
-        setXlmPrice(0.38); // Precio más realista de fallback
+      if (data.success) {
+        // Usar CoinGecko como fuente primaria
+        if (data.data.coingecko?.successful && data.data.coingecko.price > 0) {
+          console.log('✅ Precio XLM desde CoinGecko:', data.data.coingecko.price);
+          setXlmPrice(data.data.coingecko.price);
+          return;
+        }
+        
+        // Fallback a precio de fallback incluido en la respuesta
+        if (data.data.fallback?.xlm) {
+          console.log('📦 Usando precio de fallback para XLM:', data.data.fallback.xlm);
+          setXlmPrice(data.data.fallback.xlm);
+          return;
+        }
       }
+      
+      // Si la API retorna error de rate limiting pero tiene datos cacheados
+      if (response.status === 429 && data.data) {
+        console.log('⚠️ Rate limit, pero usando datos cacheados');
+        if (data.data.coingecko?.price > 0) {
+          setXlmPrice(data.data.coingecko.price);
+          return;
+        }
+      }
+      
+      // Último fallback
+      console.log('❌ Todas las fuentes fallaron, usando precio fijo');
+      setXlmPrice(0.38);
+      
     } catch (error) {
       console.error('❌ Error obteniendo precio XLM:', error);
-      setXlmPrice(0.38); // Precio más realista de fallback
+      setXlmPrice(0.38);
     } finally {
       setIsUpdatingPrices(false);
     }
   };
 
-  // Obtener precio de USDC calculado desde la cotización de Soroswap
+  // Obtener precio de USDC con manejo robusto de errores
   const fetchUsdcPrice = async () => {
     try {
-      console.log('📊 Calculando precio de USDC desde cotización de Soroswap...');
+      console.log('📊 Obteniendo precio de USDC...');
       
       // No calcular si estamos ejecutando un swap
       if (isExecuting) {
@@ -67,45 +85,59 @@ export default function SwapsPage() {
         return;
       }
       
-      // Pequeño delay para evitar sobrecarga
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Intentar primero nuestra API mejorada
+      const response = await fetch('/api/soroswap/price?asset=USDC&amount=1');
+      const data = await response.json();
       
-      // Obtener cotización de 1 XLM para calcular precio de USDC
-      const quoteResponse = await fetch('/api/soroswap/quote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: 1 })
-      });
-      
-      const quoteData = await quoteResponse.json();
-      console.log('📊 Cotización para calcular USDC:', quoteData);
-      
-      if (quoteData.success && quoteData.data.quote) {
-        const xlmAmount = 1;
-        const usdcAmount = parseFloat(quoteData.data.quote.amountOut) / 10000000; // Convertir de stroops
-        const usdcPrice = xlmAmount / usdcAmount; // Precio de USDC en XLM
-        console.log('✅ Precio USDC calculado:', usdcPrice);
-        setUsdcPrice(usdcPrice);
-      } else {
-        console.log('⚠️ No se pudo calcular precio de USDC, usando CoinGecko...');
-        // Fallback a CoinGecko
-        const coingeckoResponse = await fetch('/api/coingecko/price?asset=usd-coin');
-        const coingeckoData = await coingeckoResponse.json();
-        if (coingeckoData.success) {
-          setUsdcPrice(coingeckoData.data.price);
-        } else {
-          setUsdcPrice(0.999); // Precio de fallback
+      if (data.success) {
+        // Usar CoinGecko como fuente primaria para USDC
+        if (data.data.coingecko?.successful && data.data.coingecko.price > 0) {
+          console.log('✅ Precio USDC desde CoinGecko:', data.data.coingecko.price);
+          setUsdcPrice(data.data.coingecko.price);
+          return;
+        }
+        
+        // Usar precio de Soroswap si está disponible
+        if (data.data.soroswap?.successful && data.data.soroswap.price > 0) {
+          console.log('✅ Precio USDC desde Soroswap:', data.data.soroswap.price);
+          setUsdcPrice(data.data.soroswap.price);
+          return;
+        }
+        
+        // Fallback incluido en la respuesta
+        if (data.data.fallback?.usdc) {
+          console.log('📦 Usando precio de fallback para USDC:', data.data.fallback.usdc);
+          setUsdcPrice(data.data.fallback.usdc);
+          return;
         }
       }
+      
+      // Si la API retorna error de rate limiting pero tiene datos cacheados
+      if (response.status === 429 && data.data) {
+        console.log('⚠️ Rate limit, pero usando datos cacheados para USDC');
+        if (data.data.coingecko?.price > 0) {
+          setUsdcPrice(data.data.coingecko.price);
+          return;
+        }
+        if (data.data.soroswap?.price > 0) {
+          setUsdcPrice(data.data.soroswap.price);
+          return;
+        }
+      }
+      
+      // Último fallback
+      console.log('❌ Todas las fuentes fallaron para USDC, usando precio fijo');
+      setUsdcPrice(1.0);
+      
     } catch (error) {
       console.error('❌ Error obteniendo precio USDC:', error);
-      setUsdcPrice(0.999);
+      setUsdcPrice(1.0);
     } finally {
       setIsUpdatingPrices(false);
     }
   };
 
-  // Obtener cotización de swap
+  // Obtener cotización de swap con manejo robusto de errores
   const getSwapQuote = async (amount: string) => {
     if (!amount || parseFloat(amount) <= 0) return;
     
@@ -117,6 +149,8 @@ export default function SwapsPage() {
 
     setIsLoading(true);
     try {
+      console.log(`📊 Obteniendo cotización para ${amount} XLM...`);
+      
       const response = await fetch('/api/soroswap/quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -124,6 +158,7 @@ export default function SwapsPage() {
       });
 
       const data = await response.json();
+      
       if (data.success) {
         setQuote(data.data);
         // Calcular cantidad de salida aproximada
@@ -131,13 +166,21 @@ export default function SwapsPage() {
           // USDC en Stellar tiene 7 decimales como XLM (1 USDC = 10 millones de stroops)
           const outputAmount = (parseInt(data.data.quote.amountOut) / 10_000_000).toFixed(7);
           setOutputAmount(outputAmount);
-          console.log(`📊 Conversión output: ${data.data.quote.amountOut} stroops = ${outputAmount} USDC`);
+          console.log(`✅ Cotización: ${amount} XLM = ${outputAmount} USDC`);
         }
+      } else if (response.status === 429) {
+        console.log('⚠️ Rate limit alcanzado para cotizaciones. Intenta de nuevo en unos segundos.');
+        setSwapStatus('⚠️ Demasiadas solicitudes. Intenta de nuevo en unos segundos.');
+        setTimeout(() => setSwapStatus(''), 3000);
       } else {
-        console.error('Error obteniendo cotización:', data.message);
+        console.error('❌ Error obteniendo cotización:', data.message);
+        setSwapStatus(`❌ Error: ${data.message || 'No se pudo obtener cotización'}`);
+        setTimeout(() => setSwapStatus(''), 5000);
       }
     } catch (error) {
-      console.error('Error obteniendo cotización:', error);
+      console.error('❌ Error de red obteniendo cotización:', error);
+      setSwapStatus('❌ Error de conexión. Verifica tu red e intenta de nuevo.');
+      setTimeout(() => setSwapStatus(''), 5000);
     } finally {
       setIsLoading(false);
     }
@@ -345,18 +388,19 @@ export default function SwapsPage() {
   }, [isExecuting]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brazil-black via-slate-900 to-brazil-green">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900">
       {/* Animated background elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-1/4 -right-1/4 w-1/2 h-1/2 bg-gradient-to-l from-blue-500/10 to-transparent rounded-full animate-pulse"></div>
-        <div className="absolute -bottom-1/4 -left-1/4 w-1/2 h-1/2 bg-gradient-to-r from-purple-500/5 to-transparent rounded-full animate-pulse delay-1000"></div>
+        <div className="absolute -top-1/4 -right-1/4 w-1/2 h-1/2 bg-gradient-to-l from-emerald-500/20 to-transparent rounded-full animate-pulse"></div>
+        <div className="absolute -bottom-1/4 -left-1/4 w-1/2 h-1/2 bg-gradient-to-r from-cyan-500/15 to-transparent rounded-full animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-green-500/10 to-blue-500/10 rounded-full animate-pulse delay-500"></div>
       </div>
       
       <div className="relative z-10 p-8">
         <div className="max-w-5xl mx-auto">
           {/* Enhanced Header */}
           <header className="mb-12">
-            <div className="bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-3xl p-8 border border-gray-700/30 shadow-2xl">
+            <div className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 backdrop-blur-sm rounded-3xl p-8 border border-emerald-500/20 shadow-2xl">
               <div className="text-center">
                 <div className="inline-block mb-6">
                   <div className="w-20 h-20 relative animate-pulse">
@@ -370,7 +414,7 @@ export default function SwapsPage() {
                 </div>
                 
                 <h1 className="text-4xl lg:text-6xl font-extrabold text-white mb-6">
-                  <span className="bg-gradient-to-r from-brazil-green to-emerald-400 bg-clip-text text-transparent">ZENTRADE</span> Swaps
+                  <span className="bg-gradient-to-r from-emerald-400 via-green-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-lg">ZENTRADE</span> <span className="text-white drop-shadow-lg">Swaps</span>
                 </h1>
                 
                 <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto">
@@ -378,26 +422,26 @@ export default function SwapsPage() {
                 </p>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
-                  <div className="bg-gradient-to-r from-brazil-green/20 to-emerald-600/20 border border-brazil-green/30 rounded-2xl p-4">
-                    <div className="flex items-center justify-center text-brazil-green font-bold">
+                  <div className="bg-gradient-to-r from-emerald-500/30 to-green-600/30 border border-emerald-400/50 rounded-2xl p-4 shadow-lg">
+                    <div className="flex items-center justify-center text-emerald-300 font-bold text-lg">
                       <span className="mr-2">✅</span>
                       Assets Reales en Stellar Testnet
                     </div>
                   </div>
-                  <div className="bg-gradient-to-r from-blue-500/20 to-purple-600/20 border border-blue-500/30 rounded-2xl p-4">
-                    <div className="flex items-center justify-center text-blue-400 font-bold">
+                  <div className="bg-gradient-to-r from-cyan-500/30 to-blue-600/30 border border-cyan-400/50 rounded-2xl p-4 shadow-lg">
+                    <div className="flex items-center justify-center text-cyan-300 font-bold text-lg">
                       <span className="mr-2">🚀</span>
                       Soroswap Integration
                     </div>
                   </div>
                 </div>
                 
-                <div className="mt-6 bg-gradient-to-r from-yellow-500/10 to-orange-600/10 border border-yellow-500/30 rounded-2xl p-4 max-w-2xl mx-auto">
-                  <div className="text-yellow-400 font-semibold text-sm">
+                <div className="mt-6 bg-gradient-to-r from-amber-500/20 to-orange-600/20 border border-amber-400/40 rounded-2xl p-4 max-w-2xl mx-auto shadow-lg">
+                  <div className="text-amber-300 font-semibold text-sm">
                     <div className="mb-2">📍 Direcciones de Assets:</div>
                     <div className="grid grid-cols-1 gap-2 text-xs font-mono">
-                      <div><span className="text-yellow-300">XLM:</span> CDLZ...CYSC</div>
-                      <div><span className="text-yellow-300">USDC:</span> CBIE...DAMA</div>
+                      <div><span className="text-amber-200">XLM:</span> <span className="text-white">CDLZ...CYSC</span></div>
+                      <div><span className="text-amber-200">USDC:</span> <span className="text-white">CBIE...DAMA</span></div>
                     </div>
                   </div>
                 </div>
@@ -406,7 +450,7 @@ export default function SwapsPage() {
           </header>
 
           {/* Enhanced Swap Interface */}
-          <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-3xl p-8 border border-gray-700/30 shadow-2xl">
+          <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm rounded-3xl p-8 border border-emerald-500/20 shadow-2xl">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-white mb-2">Interfaz de Swap</h2>
               <p className="text-gray-300 mb-4">Intercambia tus tokens con las mejores tasas</p>
@@ -422,10 +466,10 @@ export default function SwapsPage() {
                 >
                   {isUpdatingPrices ? '⏳ Actualizando...' : '🔄 Actualizar Precios'}
                 </button>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-gray-300">
                   XLM: CoinGecko | USDC: Soroswap (Stellar DEX)
                 </p>
-                <p className="text-xs text-blue-400">
+                <p className="text-xs text-cyan-300">
                   💡 Precios reales para mejor experiencia
                 </p>
               </div>
