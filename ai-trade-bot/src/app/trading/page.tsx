@@ -31,6 +31,7 @@ export default function TradingPage() {
   const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [tradeResult, setTradeResult] = useState<any>(null);
+  const [walletBalance, setWalletBalance] = useState<number>(1000); // Simulado
 
   // Monitorear cambios en el estado de la posición (solo para depuración)
   // useEffect(() => {
@@ -133,6 +134,7 @@ export default function TradingPage() {
         setTradeResult({
           hash: result.hash,
           ledger: result.ledger || 'N/A',
+          action: 'open',
           amount: newPosition.amount,
           leverage: newPosition.leverage,
           type: newPosition.type,
@@ -162,25 +164,124 @@ export default function TradingPage() {
       return;
     }
 
+    // Encontrar la posición a cerrar
+    const position = positions.find(p => p.id === id);
+    if (!position) {
+      alert('Posición no encontrada');
+      return;
+    }
+
     setIsLoading(true);
-    setTransactionStatus('Cerrando posición...');
+    setTransactionStatus('Calculando PnL...');
     
     try {
-      // 1. Crear transacción para cerrar posición en el contrato
+      // 1. Calcular PnL real basado en el precio actual
+      const currentPrice = xlmPrice;
+      const entryPrice = position.entryPrice;
+      const amount = position.amount;
+      const leverage = position.leverage;
+      
+      let pnl;
+      if (position.type === 'long') {
+        // Para LONG: PnL = (precio_actual - precio_entrada) * cantidad * leverage
+        pnl = (currentPrice - entryPrice) * amount * leverage;
+      } else {
+        // Para SHORT: PnL = (precio_entrada - precio_actual) * cantidad * leverage
+        pnl = (entryPrice - currentPrice) * amount * leverage;
+      }
+      
+      const margin = amount / leverage;
+      const totalReturn = margin + pnl; // Margen inicial + PnL
+      const roi = (pnl / margin) * 100; // Return on Investment
+      
+      setTransactionStatus('Creando transacción de cierre...');
+      
+      // 2. Crear transacción para cerrar posición en el contrato
       const transactionXdr = await contractService.closePosition(publicKey, id);
 
-      // 2. Firmar transacción
+      // 3. Firmar transacción
       setTransactionStatus('Firmando transacción...');
       const signedTransaction = await signTransaction(transactionXdr);
 
-      // 3. Enviar transacción
-      setTransactionStatus('Enviando transacción...');
+      // 4. Enviar transacción del contrato
+      setTransactionStatus('Enviando transacción de cierre...');
       const result = await contractService.submitTransaction(signedTransaction);
 
       if (result.successful) {
+        setTransactionStatus('Creando transacción de transferencia de fondos...');
+        
+        // 5. Crear transacción de transferencia que el usuario debe firmar
+        const transferResponse = await fetch('/api/transfer-funds', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toAccount: publicKey,
+            amount: totalReturn.toFixed(7), // Monto con PnL
+            memo: `PnL: ${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}`,
+            createTransaction: true // Solo crear la transacción, no enviarla
+          })
+        });
+
+        const transferData = await transferResponse.json();
+        if (!transferData.success) {
+          throw new Error('Error creando transacción de transferencia: ' + transferData.message);
+        }
+
+        // 6. Firmar la transacción de transferencia
+        setTransactionStatus('Firmando transacción de transferencia de fondos...');
+        console.log('📝 TransactionXdr recibido:', transferData.transactionXdr ? transferData.transactionXdr.substring(0, 50) + '...' : 'undefined');
+        const signedTransferTransaction = await signTransaction(transferData.transactionXdr);
+        console.log('📝 SignedTransaction result:', typeof signedTransferTransaction, signedTransferTransaction ? signedTransferTransaction.substring(0, 50) + '...' : 'undefined');
+
+        // 7. Enviar la transacción de transferencia
+        setTransactionStatus('Enviando transferencia de fondos...');
+        const transferSubmitResponse = await fetch('/api/transfer-funds', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            signedTransaction: signedTransferTransaction
+          })
+        });
+
+        const transferSubmitData = await transferSubmitResponse.json();
+        if (!transferSubmitData.success) {
+          throw new Error('Error enviando transferencia: ' + transferSubmitData.message);
+        }
+
+        // 8. Mostrar pantalla de confirmación con PnL y fondos devueltos
+        setTradeResult({
+          hash: result.hash,
+          transferHash: transferSubmitData.data?.hash, // Hash de la transferencia de fondos
+          ledger: result.ledger || 'N/A',
+          action: 'close',
+          position: {
+            type: position.type,
+            leverage: position.leverage,
+            amount: position.amount,
+            entryPrice: position.entryPrice,
+            currentPrice: currentPrice
+          },
+          pnl: pnl,
+          margin: margin,
+          totalReturn: totalReturn,
+          roi: roi,
+          fundsReturned: totalReturn, // Monto real devuelto por el contrato
+          transferSuccessful: transferData.success,
+          network: 'testnet'
+        });
+        setShowConfirmation(true);
+        setTransactionStatus(`✅ Posición cerrada - Fondos devueltos: $${totalReturn.toFixed(2)} - Hash: ${result.hash.substring(0, 8)}...`);
+        
+        // 9. Remover posición de la lista
         setPositions(prev => prev.filter(p => p.id !== id));
-        setTransactionStatus('✅ Posición cerrada exitosamente');
-        alert(`✅ Posición cerrada - Hash: ${result.hash}`);
+        
+        // 10. Actualizar balance de la wallet (simulado)
+        setWalletBalance(prev => prev + totalReturn);
+        
+        // 11. Mostrar notificación de fondos devueltos
+        setTimeout(() => {
+          alert(`💰 Fondos devueltos: $${totalReturn.toFixed(2)}\n\nEl contrato ha transferido los fondos de vuelta a tu wallet.`);
+        }, 1000);
       } else {
         throw new Error('Transacción falló');
       }
@@ -487,41 +588,93 @@ export default function TradingPage() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-brazil-white rounded-lg p-8 max-w-lg w-full mx-4 border-4 border-brazil-green">
               <div className="text-center">
-                <div className="text-6xl mb-4">🚀</div>
+                <div className="text-6xl mb-4">
+                  {tradeResult.action === 'close' ? '💰' : '🚀'}
+                </div>
                 <h2 className="text-2xl font-bold text-brazil-black mb-4">
-                  ¡Posición Abierta Exitosamente!
+                  {tradeResult.action === 'close' 
+                    ? '¡Posición Cerrada - Fondos Devueltos!' 
+                    : '¡Posición Abierta Exitosamente!'
+                  }
                 </h2>
+                {tradeResult.action === 'close' && (
+                  <p className="text-brazil-gray mb-4">
+                    El contrato ha transferido ${tradeResult.fundsReturned?.toFixed(2) || tradeResult.totalReturn.toFixed(2)} de vuelta a tu wallet
+                  </p>
+                )}
                 
                 <div className="bg-brazil-gray rounded-lg p-6 mb-6 text-left">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="font-bold text-brazil-white">Tipo:</span>
-                      <div className={`text-lg font-bold ${tradeResult.type === 'long' ? 'text-brazil-green' : 'text-red-500'}`}>
-                        {tradeResult.type.toUpperCase()} {tradeResult.leverage}x
+                      <div className={`text-lg font-bold ${tradeResult.position?.type === 'long' ? 'text-brazil-green' : 'text-red-500'}`}>
+                        {tradeResult.position?.type?.toUpperCase()} {tradeResult.position?.leverage}x
                       </div>
                     </div>
                     <div>
                       <span className="font-bold text-brazil-white">Cantidad:</span>
-                      <div className="text-brazil-yellow">{tradeResult.amount} XLM</div>
+                      <div className="text-brazil-yellow">{tradeResult.position?.amount || tradeResult.amount} XLM</div>
                     </div>
                     <div>
                       <span className="font-bold text-brazil-white">Precio Entrada:</span>
-                      <div className="text-brazil-yellow">${tradeResult.entryPrice.toFixed(4)}</div>
+                      <div className="text-brazil-yellow">${tradeResult.position?.entryPrice?.toFixed(4) || tradeResult.entryPrice?.toFixed(4)}</div>
                     </div>
+                    {tradeResult.action === 'close' && tradeResult.position?.currentPrice && (
+                      <div>
+                        <span className="font-bold text-brazil-white">Precio Salida:</span>
+                        <div className="text-brazil-yellow">${tradeResult.position.currentPrice.toFixed(4)}</div>
+                      </div>
+                    )}
                     <div>
                       <span className="font-bold text-brazil-white">Margen:</span>
-                      <div className="text-brazil-yellow">${tradeResult.margin.toFixed(2)}</div>
+                      <div className="text-brazil-yellow">${tradeResult.margin?.toFixed(2) || tradeResult.margin?.toFixed(2)}</div>
                     </div>
+                    {tradeResult.action === 'open' && tradeResult.liquidationPrice && (
+                      <div>
+                        <span className="font-bold text-brazil-white">Liquidation Price:</span>
+                        <div className="text-brazil-yellow">${tradeResult.liquidationPrice.toFixed(4)}</div>
+                      </div>
+                    )}
+                    {tradeResult.action === 'close' && (
+                      <>
+                        <div>
+                          <span className="font-bold text-brazil-white">PnL:</span>
+                          <div className={`text-lg font-bold ${tradeResult.pnl >= 0 ? 'text-brazil-green' : 'text-red-500'}`}>
+                            ${tradeResult.pnl.toFixed(2)}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="font-bold text-brazil-white">ROI:</span>
+                          <div className={`text-lg font-bold ${tradeResult.roi >= 0 ? 'text-brazil-green' : 'text-red-500'}`}>
+                            {tradeResult.roi.toFixed(2)}%
+                          </div>
+                        </div>
+                        <div>
+                          <span className="font-bold text-brazil-white">Fondos Devueltos:</span>
+                          <div className="text-brazil-yellow text-lg font-bold">
+                            ${tradeResult.fundsReturned?.toFixed(2) || tradeResult.totalReturn.toFixed(2)}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="font-bold text-brazil-white">Margen Inicial:</span>
+                          <div className="text-brazil-yellow">${tradeResult.margin.toFixed(2)}</div>
+                        </div>
+                      </>
+                    )}
                     <div>
-                      <span className="font-bold text-brazil-white">Liquidation Price:</span>
-                      <div className="text-brazil-yellow">${tradeResult.liquidationPrice.toFixed(4)}</div>
-                    </div>
-                    <div>
-                      <span className="font-bold text-brazil-white">Hash:</span>
+                      <span className="font-bold text-brazil-white">Hash Contrato:</span>
                       <div className="text-brazil-yellow font-mono text-xs break-all">
                         {tradeResult.hash}
                       </div>
                     </div>
+                    {tradeResult.action === 'close' && tradeResult.transferHash && (
+                      <div>
+                        <span className="font-bold text-brazil-white">Hash Transferencia:</span>
+                        <div className="text-brazil-yellow font-mono text-xs break-all">
+                          {tradeResult.transferHash}
+                        </div>
+                      </div>
+                    )}
                     <div>
                       <span className="font-bold text-brazil-white">Ledger:</span>
                       <div className="text-brazil-yellow">{tradeResult.ledger}</div>
@@ -547,11 +700,13 @@ export default function TradingPage() {
                     onClick={() => {
                       setShowConfirmation(false);
                       setTradeResult(null);
-                      setNewPosition({ amount: 0, leverage: 2, type: 'long' });
+                      if (tradeResult.action === 'open') {
+                        setNewPosition({ amount: 0, leverage: 2, type: 'long' });
+                      }
                     }}
                     className="block w-full bg-brazil-gray text-brazil-white py-3 rounded-lg font-bold hover:bg-gray-600 transition-colors"
                   >
-                    ✨ Abrir Otra Posición
+                    {tradeResult.action === 'close' ? '✨ Ver Posiciones' : '✨ Abrir Otra Posición'}
                   </button>
                 </div>
               </div>
