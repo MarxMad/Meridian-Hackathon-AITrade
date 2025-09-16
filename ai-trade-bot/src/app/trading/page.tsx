@@ -39,14 +39,22 @@ export default function TradingPage() {
   //   console.log('🔄 Estado de newPosition cambió:', newPosition);
   // }, [newPosition]);
 
-  // Obtener precio de XLM
+  // Obtener precio de XLM desde Soroswap (precio real)
   const fetchXlmPrice = async () => {
     try {
-      const response = await fetch('/api/soroswap/price');
+      const response = await fetch('/api/soroswap/price?asset=XLM&amount=1');
       const data = await response.json();
-      if (data.success) {
-        setXlmPrice(data.data.price_usd);
+      if (data.success && data.data.soroswap.price > 0) {
+        setXlmPrice(data.data.soroswap.price);
         setLastUpdateTime(new Date().toLocaleTimeString());
+      } else {
+        // Fallback a CoinGecko
+        const coingeckoResponse = await fetch('/api/coingecko/price?asset=stellar');
+        const coingeckoData = await coingeckoResponse.json();
+        if (coingeckoData.success) {
+          setXlmPrice(coingeckoData.data.price);
+          setLastUpdateTime(new Date().toLocaleTimeString());
+        }
       }
     } catch (error) {
       console.error('Error obteniendo precio:', error);

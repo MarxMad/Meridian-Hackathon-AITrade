@@ -4,7 +4,7 @@ const crypto = require('crypto');
 require('dotenv').config();
 
 // Configuración del bot
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || 'YOUR_BOT_TOKEN';
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8343949971:AAFefvH90WJCYeEkbGxYVBDRy9dLpiSwAnQ';
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3000';
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'your-32-char-secret-key-here!';
 
@@ -31,9 +31,12 @@ function decrypt(encryptedText) {
   return decrypted;
 }
 
+// Importar StellarSdk una sola vez
+const StellarSdk = require('@stellar/stellar-sdk');
+const { Horizon } = StellarSdk;
+
 // Función para generar wallet Stellar
 function generateStellarWallet() {
-  const StellarSdk = require('stellar-sdk');
   const keypair = StellarSdk.Keypair.random();
   return {
     publicKey: keypair.publicKey(),
@@ -41,43 +44,454 @@ function generateStellarWallet() {
   };
 }
 
-// Función para obtener precio de XLM
+// Función para fondear wallet en testnet
+async function fundWallet(publicKey) {
+  try {
+    const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+    
+    // Usar Friendbot para fondear la cuenta en testnet
+    const response = await fetch(`https://friendbot.stellar.org/?addr=${publicKey}`);
+    const result = await response.json();
+    
+    if (result.status === 400 && result.detail.includes('already funded')) {
+      // La cuenta ya está fondada, verificar balance
+      const account = await server.loadAccount(publicKey);
+      const xlmBalance = account.balances.find(balance => balance.asset_type === 'native');
+      
+      return {
+        success: true,
+        balance: parseFloat(xlmBalance.balance),
+        message: `✅ Wallet ya estaba fondada con ${xlmBalance.balance} XLM`
+      };
+    } else if (result.status === 400) {
+      throw new Error(`Friendbot error: ${result.detail}`);
+    } else if (response.status !== 200) {
+      throw new Error('Friendbot no pudo fondear la cuenta');
+    } else {
+      // Verificar que la cuenta esté fondada
+      const account = await server.loadAccount(publicKey);
+      const xlmBalance = account.balances.find(balance => balance.asset_type === 'native');
+      
+      return {
+        success: true,
+        balance: parseFloat(xlmBalance.balance),
+        message: `✅ Wallet fondada con ${xlmBalance.balance} XLM`
+      };
+    }
+  } catch (error) {
+    console.error('Error fondeando wallet:', error);
+    return {
+      success: false,
+      balance: 0,
+      message: `❌ Error fondeando wallet: ${error.message}`
+    };
+  }
+}
+
+// Función para obtener precio de XLM desde Soroswap (precio real de Stellar DEX)
 async function getXlmPrice() {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/soroswap/price`);
-    return response.data.data?.price_usd || 0;
+    const response = await axios.get(`${API_BASE_URL}/api/soroswap/price?asset=XLM&amount=1`);
+    
+    if (response.data.success && response.data.data.soroswap.price > 0) {
+      return response.data.data.soroswap.price;
+    }
+    
+    // Fallback a CoinGecko si Soroswap falla
+    const coingeckoResponse = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=usd');
+    return coingeckoResponse.data.stellar?.usd || 0.12;
   } catch (error) {
-    console.error('Error obteniendo precio:', error);
-    return 0.15; // Precio de fallback
+    console.error('Error obteniendo precio de XLM:', error);
+    return 0.12; // Precio de fallback
   }
 }
 
-// Función para obtener cotización de swap
-async function getSwapQuote(amount) {
+// Función para obtener precio de USDC desde Soroswap
+async function getUsdcPrice() {
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/soroswap/quote`, {
-      amount: amount
-    });
-    return response.data;
+    const response = await axios.get(`${API_BASE_URL}/api/soroswap/price?asset=USDC&amount=1`);
+    
+    if (response.data.success && response.data.data.soroswap.price > 0) {
+      return response.data.data.soroswap.price;
+    }
+    
+    return 1.0; // USDC siempre es ~$1
   } catch (error) {
-    console.error('Error obteniendo cotización:', error);
-    return null;
+    console.error('Error obteniendo precio de USDC:', error);
+    return 1.0;
   }
 }
 
-// Función para ejecutar swap real
-async function executeSwap(publicKey, amount, quote) {
-  try {
-    const response = await axios.post(`${API_BASE_URL}/api/soroswap/execute`, {
-      sourceAccount: publicKey,
-      quote: quote.data.quote,
-      network: 'testnet'
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error ejecutando swap:', error);
-    return null;
+// Función para obtener cotización de swap REAL con retry
+async function getSwapQuote(amount, retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`📊 Obteniendo cotización REAL para ${amount} XLM... (intento ${attempt}/${retries})`);
+      
+      const response = await axios.post(`${API_BASE_URL}/api/soroswap/quote`, {
+        amount: amount
+      });
+      
+      console.log('📊 Respuesta de cotización:', response.data);
+      
+      if (response.data.success) {
+        return response.data.data;
+      } else {
+        console.error(`❌ Error en cotización (intento ${attempt}):`, response.data.message);
+        
+        // Si es rate limit, esperar antes del siguiente intento
+        if (response.data.message && response.data.message.includes('rate limit')) {
+          if (attempt < retries) {
+            const waitTime = attempt * 2000; // 2s, 4s, 6s
+            console.log(`⏳ Rate limit detectado, esperando ${waitTime}ms...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+        }
+        
+        return null;
+      }
+    } catch (error) {
+      console.error(`❌ Error obteniendo cotización (intento ${attempt}):`, error.message);
+      
+      // Si es rate limit, esperar antes del siguiente intento
+      if (error.response && error.response.status === 429) {
+        if (attempt < retries) {
+          const waitTime = attempt * 2000; // 2s, 4s, 6s
+          console.log(`⏳ Rate limit detectado, esperando ${waitTime}ms...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        }
+      }
+      
+      if (attempt === retries) {
+        return null;
+      }
+    }
   }
+  
+  return null;
+}
+
+// Función para obtener cotización de trading REAL
+async function getTradeQuote(amount, leverage = 2, tradeType = 'long', retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`📈 Obteniendo cotización REAL para trade: ${amount} XLM, ${leverage}x, ${tradeType}... (intento ${attempt}/${retries})`);
+      
+      const response = await axios.post(`${API_BASE_URL}/api/contract/query`, {
+        action: 'get_quote',
+        amount: amount,
+        leverage: leverage,
+        trade_type: tradeType
+      });
+      
+      console.log('📈 Respuesta de cotización de trading:', response.data);
+      
+      if (response.data.success) {
+        return response.data.data;
+      } else {
+        console.error(`❌ Error en cotización de trading (intento ${attempt}):`, response.data.message);
+        
+        // Si es rate limit, esperar antes del siguiente intento
+        if (response.data.message && response.data.message.includes('rate limit')) {
+          if (attempt < retries) {
+            const waitTime = attempt * 2000; // 2s, 4s, 6s
+            console.log(`⏳ Rate limit detectado, esperando ${waitTime}ms...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+        }
+        
+        return null;
+      }
+    } catch (error) {
+      console.error(`❌ Error obteniendo cotización de trading (intento ${attempt}):`, error.message);
+      
+      if (attempt === retries) {
+        return null;
+      }
+    }
+  }
+  
+  return null;
+}
+
+// Función para firmar transacciones
+async function signTransaction(transactionXdr, secretKey) {
+  try {
+    const keypair = StellarSdk.Keypair.fromSecret(secretKey);
+    const transaction = StellarSdk.TransactionBuilder.fromXDR(transactionXdr, StellarSdk.Networks.TESTNET);
+    transaction.sign(keypair);
+    return transaction.toXDR();
+  } catch (error) {
+    console.error('❌ Error firmando transacción:', error);
+    throw new Error(`Error firmando transacción: ${error.message}`);
+  }
+}
+
+// Función para ejecutar swap REAL con retry
+async function executeSwap(publicKey, secretKey, amount, quote, retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`🔄 Ejecutando swap REAL: ${amount} XLM → USDC (intento ${attempt}/${retries})`);
+      console.log('🔄 Quote recibida:', quote);
+      
+      // 1. Crear transacción de swap
+      const executeResponse = await axios.post(`${API_BASE_URL}/api/soroswap/execute`, {
+        sourceAccount: publicKey,
+        quote: quote.quote,
+        network: 'testnet'
+      });
+    
+    if (!executeResponse.data.success) {
+      throw new Error(executeResponse.data.message || 'Error creando transacción');
+    }
+    
+    console.log('✅ Transacción creada:', executeResponse.data);
+    
+    // 2. Verificar si es transacción de fallback
+    if (executeResponse.data.fallback) {
+      throw new Error('Rate limit excedido en Soroswap API. Por favor intenta más tarde.');
+    }
+    
+    // 3. Verificar si necesita crear trustline primero
+    if (executeResponse.data.requiresTrustline) {
+      console.log('🔗 Se requiere crear trustline primero...');
+      
+      const transactionXdr = executeResponse.data.transactionXdr;
+      if (!transactionXdr || transactionXdr === 'AAAAAQAAAAA...') {
+        throw new Error('No se recibió XDR válido para crear trustline');
+      }
+      
+      console.log('🔐 Firmando transacción de trustline...');
+      const signedTransaction = await signTransaction(transactionXdr, secretKey);
+      
+      console.log('📤 Enviando transacción de trustline...');
+      const trustlineResponse = await axios.post(`${API_BASE_URL}/api/soroswap/submit`, {
+        signedTransaction: signedTransaction
+      });
+      
+      if (!trustlineResponse.data.success) {
+        throw new Error(trustlineResponse.data.message || 'Error creando trustline');
+      }
+      
+      console.log('✅ Trustline creada exitosamente:', trustlineResponse.data);
+      
+      // Esperar un poco para que la trustline se propague
+      console.log('⏳ Esperando propagación de trustline...');
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Aumentar a 5 segundos
+      
+      // Ahora crear la transacción de swap real
+      console.log('🔄 Creando transacción de swap...');
+      const swapExecuteResponse = await axios.post(`${API_BASE_URL}/api/soroswap/execute`, {
+        sourceAccount: publicKey,
+        quote: quote.quote,
+        network: 'testnet'
+      });
+      
+      if (!swapExecuteResponse.data.success) {
+        console.error('❌ Error creando transacción de swap:', swapExecuteResponse.data);
+        throw new Error(swapExecuteResponse.data.message || 'Error creando transacción de swap');
+      }
+      
+      console.log('✅ Transacción de swap creada:', swapExecuteResponse.data);
+      
+      // El XDR puede estar en transactionXdr o en soroswapResponse.xdr
+      const swapTransactionXdr = swapExecuteResponse.data.transactionXdr || 
+                                 swapExecuteResponse.data.data?.soroswapResponse?.xdr;
+      
+      console.log('🔍 XDR encontrado:', swapTransactionXdr ? swapTransactionXdr.substring(0, 50) + '...' : 'undefined');
+      console.log('🔍 transactionXdr:', swapExecuteResponse.data.transactionXdr);
+      console.log('🔍 data.soroswapResponse.xdr:', swapExecuteResponse.data.data?.soroswapResponse?.xdr);
+      
+      if (!swapTransactionXdr || swapTransactionXdr === 'AAAAAQAAAAA...') {
+        console.error('❌ XDR de swap inválido:', swapTransactionXdr);
+        console.error('❌ Respuesta completa:', swapExecuteResponse.data);
+        throw new Error('No se recibió XDR válido para el swap. La trustline puede necesitar más tiempo para propagarse.');
+      }
+      
+      console.log('🔐 Firmando transacción de swap...');
+      const signedSwapTransaction = await signTransaction(swapTransactionXdr, secretKey);
+      
+      console.log('📤 Enviando transacción de swap...');
+      const swapSubmitResponse = await axios.post(`${API_BASE_URL}/api/soroswap/submit`, {
+        signedTransaction: signedSwapTransaction
+      });
+      
+      if (!swapSubmitResponse.data.success) {
+        throw new Error(swapSubmitResponse.data.message || 'Error enviando transacción de swap');
+      }
+      
+      console.log('✅ Swap REAL ejecutado exitosamente:', swapSubmitResponse.data);
+      
+      return {
+        success: true,
+        hash: swapSubmitResponse.data.data.hash,
+        ledger: swapSubmitResponse.data.data.ledger,
+        message: 'Swap ejecutado exitosamente',
+        trustlineHash: trustlineResponse.data.data.hash
+      };
+    } else {
+      // Swap directo sin trustline
+      // El XDR puede estar en transactionXdr o en soroswapResponse.xdr
+      const transactionXdr = executeResponse.data.transactionXdr || 
+                             executeResponse.data.data?.soroswapResponse?.xdr;
+      
+      console.log('🔍 XDR encontrado (swap directo):', transactionXdr ? transactionXdr.substring(0, 50) + '...' : 'undefined');
+      console.log('🔍 transactionXdr:', executeResponse.data.transactionXdr);
+      console.log('🔍 data.soroswapResponse.xdr:', executeResponse.data.data?.soroswapResponse?.xdr);
+      
+      if (!transactionXdr) {
+        console.error('❌ No se recibió XDR de la transacción');
+        console.error('❌ Respuesta completa:', executeResponse.data);
+        throw new Error('No se recibió XDR de la transacción');
+      }
+      
+      // Si es XDR de fallback, no podemos proceder
+      if (transactionXdr === 'AAAAAQAAAAA...') {
+        throw new Error('Rate limit excedido en Soroswap API. Por favor intenta más tarde.');
+      }
+      
+      console.log('🔐 Firmando transacción de swap...');
+      const signedTransaction = await signTransaction(transactionXdr, secretKey);
+      
+      console.log('📤 Enviando transacción de swap...');
+      const submitResponse = await axios.post(`${API_BASE_URL}/api/soroswap/submit`, {
+        signedTransaction: signedTransaction
+      });
+      
+      if (!submitResponse.data.success) {
+        throw new Error(submitResponse.data.message || 'Error enviando transacción');
+      }
+      
+      console.log('✅ Swap REAL ejecutado exitosamente:', submitResponse.data);
+      
+      return {
+        success: true,
+        hash: submitResponse.data.data.hash,
+        ledger: submitResponse.data.data.ledger,
+        message: 'Swap ejecutado exitosamente'
+      };
+    }
+    
+    } catch (error) {
+      console.error(`❌ Error ejecutando swap REAL (intento ${attempt}):`, error);
+      
+      // Si es rate limit, esperar antes del siguiente intento
+      if (error.message && error.message.includes('Rate limit')) {
+        if (attempt < retries) {
+          const waitTime = attempt * 3000; // 3s, 6s, 9s
+          console.log(`⏳ Rate limit detectado, esperando ${waitTime}ms...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        }
+      }
+      
+      if (attempt === retries) {
+        return { 
+          success: false, 
+          message: `Error ejecutando swap: ${error.message}` 
+        };
+      }
+    }
+  }
+  
+  return { 
+    success: false, 
+    message: 'Error ejecutando swap después de múltiples intentos' 
+  };
+}
+
+// Función para ejecutar trade REAL con retry
+async function executeTrade(publicKey, secretKey, amount, leverage, tradeType, quote, retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`📈 Ejecutando trade REAL: ${amount} XLM, ${leverage}x, ${tradeType}... (intento ${attempt}/${retries})`);
+      console.log('📈 Quote recibida:', quote);
+      
+      // 1. Crear transacción de trading
+      const executeResponse = await axios.post(`${API_BASE_URL}/api/contract/real-operations`, {
+        action: 'open_position',
+        sourceAccount: publicKey,
+        amount: amount,
+        leverage: leverage,
+        trade_type: tradeType,
+        quote: quote
+      });
+    
+      if (!executeResponse.data.success) {
+        throw new Error(executeResponse.data.message || 'Error creando transacción de trading');
+      }
+      
+      console.log('✅ Transacción de trading creada:', executeResponse.data);
+      
+      // 2. Verificar si es transacción de fallback
+      if (executeResponse.data.fallback) {
+        throw new Error('Rate limit excedido en Contract API. Por favor intenta más tarde.');
+      }
+      
+      // 3. Obtener XDR de la transacción
+      const transactionXdr = executeResponse.data.data?.transactionXdr || 
+                             executeResponse.data.transactionXdr;
+      
+      console.log('🔍 XDR encontrado (trade):', transactionXdr ? transactionXdr.substring(0, 50) + '...' : 'undefined');
+      
+      if (!transactionXdr) {
+        console.error('❌ No se recibió XDR de la transacción de trading');
+        console.error('❌ Respuesta completa:', executeResponse.data);
+        throw new Error('No se recibió XDR de la transacción de trading');
+      }
+      
+      // 4. Firmar transacción
+      console.log('🔐 Firmando transacción de trading...');
+      const signedTransaction = await signTransaction(transactionXdr, secretKey);
+      
+      // 5. Enviar transacción
+      console.log('📤 Enviando transacción de trading...');
+      const submitResponse = await axios.post(`${API_BASE_URL}/api/contract/real-submit`, {
+        signedTransaction: signedTransaction
+      });
+      
+      if (!submitResponse.data.success) {
+        throw new Error(submitResponse.data.message || 'Error enviando transacción de trading');
+      }
+      
+      console.log('✅ Trade REAL ejecutado exitosamente:', submitResponse.data);
+      
+      return {
+        success: true,
+        hash: submitResponse.data.data.hash,
+        ledger: submitResponse.data.data.ledger,
+        message: 'Trade ejecutado exitosamente'
+      };
+      
+    } catch (error) {
+      console.error(`❌ Error ejecutando trade REAL (intento ${attempt}):`, error);
+      
+      // Si es rate limit, esperar antes del siguiente intento
+      if (error.message && error.message.includes('Rate limit')) {
+        if (attempt < retries) {
+          const waitTime = attempt * 3000; // 3s, 6s, 9s
+          console.log(`⏳ Rate limit detectado, esperando ${waitTime}ms...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        }
+      }
+      
+      if (attempt === retries) {
+        return { 
+          success: false, 
+          message: `Error ejecutando trade: ${error.message}` 
+        };
+      }
+    }
+  }
+  
+  return { 
+    success: false, 
+    message: 'Error ejecutando trade después de múltiples intentos' 
+  };
 }
 
 // Función para abrir posición de trading
@@ -117,6 +531,9 @@ bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   const username = msg.from.username || msg.from.first_name;
   
+  // Verificar si ya tiene wallet
+  const hasWallet = userWallets.has(chatId);
+  
   const welcomeMessage = `
 🤖 **¡Hola ${username}!** 
 
@@ -150,7 +567,20 @@ Soy tu bot de trading completo en Stellar. Puedo ayudarte a:
   
   const keyboard = {
     reply_markup: {
-      inline_keyboard: [
+      inline_keyboard: hasWallet ? [
+        [
+          { text: '🔑 Mi Wallet', callback_data: 'view_wallet' },
+          { text: '💰 Ver Balance', callback_data: 'view_balance' }
+        ],
+        [
+          { text: '📊 Ver Precios', callback_data: 'view_prices' },
+          { text: '🔄 Hacer Swap', callback_data: 'make_swap' }
+        ],
+        [
+          { text: '📈 Trading', callback_data: 'trading_menu' },
+          { text: '📋 Mis Posiciones', callback_data: 'view_positions' }
+        ]
+      ] : [
         [
           { text: '🔑 Crear Wallet', callback_data: 'create_wallet' },
           { text: '💰 Ver Balance', callback_data: 'view_balance' }
@@ -179,12 +609,17 @@ bot.onText(/\/wallet/, (msg) => {
     const walletMessage = `
 🔑 **Tu Wallet Stellar**
 
-**Clave Pública:**
+**💰 Clave Pública (Para Recibir Fondos):**
 \`${wallet.publicKey}\`
+*Copia esta clave para recibir XLM de otras wallets*
 
 **Estado:** ✅ Activa
 **Red:** Stellar Testnet
 **Creada:** ${new Date(wallet.createdAt).toLocaleString()}
+
+🌐 **Ver en Explorador:**
+[Testnet Explorer](https://stellar.expert/explorer/testnet/account/${wallet.publicKey})
+*Haz clic para ver tu wallet en tiempo real*
 
 **Comandos:**
 /balance - Ver balance
@@ -202,6 +637,9 @@ bot.onText(/\/wallet/, (msg) => {
           [
             { text: '🔄 Importar', callback_data: 'import_wallet' },
             { text: '🗑️ Eliminar', callback_data: 'delete_wallet' }
+          ],
+          [
+            { text: '📋 Copiar Clave Pública', callback_data: 'copy_public_key' }
           ]
         ]
       }
@@ -255,6 +693,33 @@ bot.onText(/\/swap (.+) XLM/, async (msg, match) => {
   
   try {
     const wallet = userWallets.get(chatId);
+    
+    // Verificar si la wallet es nueva (menos de 60 segundos)
+    const walletAge = Date.now() - wallet.createdAt;
+    const isNewWallet = walletAge < 60000; // 60 segundos
+    
+    if (isNewWallet) {
+      const remainingTime = Math.ceil((60000 - walletAge) / 1000);
+      const waitMessage = `
+⏰ **Wallet Nueva Detectada**
+
+**Tiempo restante:** ${remainingTime} segundos
+**Estado:** Esperando propagación en la red...
+
+**¿Por qué?**
+Las wallets nuevas necesitan tiempo para propagarse en Stellar testnet antes de poder hacer swaps.
+
+**Próximos pasos:**
+• Espera ${remainingTime} segundos más
+• Luego usa /swap ${amount} XLM nuevamente
+• O usa /balance para verificar tu wallet
+
+🔄 **Reintentar en ${remainingTime}s...**
+      `;
+      
+      await bot.sendMessage(chatId, waitMessage, { parse_mode: 'Markdown' });
+      return;
+    }
     
     // Mostrar mensaje de inicio
     const startMessage = `
@@ -321,6 +786,34 @@ bot.onText(/\/trade/, (msg) => {
   
   if (!userWallets.has(chatId)) {
     bot.sendMessage(chatId, '❌ Primero debes crear una wallet con /wallet');
+    return;
+  }
+  
+  // Verificar si la wallet es nueva (menos de 60 segundos)
+  const wallet = userWallets.get(chatId);
+  const walletAge = Date.now() - wallet.createdAt;
+  const isNewWallet = walletAge < 60000; // 60 segundos
+  
+  if (isNewWallet) {
+    const remainingTime = Math.ceil((60000 - walletAge) / 1000);
+    const waitMessage = `
+⏰ **Wallet Nueva Detectada**
+
+**Tiempo restante:** ${remainingTime} segundos
+**Estado:** Esperando propagación en la red...
+
+**¿Por qué?**
+Las wallets nuevas necesitan tiempo para propagarse en Stellar testnet antes de poder hacer trading.
+
+**Próximos pasos:**
+• Espera ${remainingTime} segundos más
+• Luego usa /trade nuevamente
+• O usa /balance para verificar tu wallet
+
+🔄 **Reintentar en ${remainingTime}s...**
+    `;
+    
+    bot.sendMessage(chatId, waitMessage, { parse_mode: 'Markdown' });
     return;
   }
   
@@ -408,21 +901,54 @@ bot.onText(/\/balance/, async (msg) => {
     const wallet = userWallets.get(chatId);
     const price = await getXlmPrice();
     
-    // Simular balance (en producción, consultar la red Stellar)
-    const xlmBalance = 1000.0; // Balance simulado
-    const usdValue = xlmBalance * price;
+    // Obtener balance real de la red Stellar
+    const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+    const account = await server.loadAccount(wallet.publicKey);
+    const xlmBalance = account.balances.find(balance => balance.asset_type === 'native');
+    const balance = parseFloat(xlmBalance.balance);
     
-    const balanceMessage = `
+    // Actualizar balance en memoria
+    wallet.balance = balance;
+    userWallets.set(chatId, wallet);
+    
+    const usdValue = balance * price;
+    
+    // Verificar si la wallet es nueva
+    const walletAge = Date.now() - wallet.createdAt;
+    const isNewWallet = walletAge < 60000; // 60 segundos
+    const remainingTime = isNewWallet ? Math.ceil((60000 - walletAge) / 1000) : 0;
+    
+    let balanceMessage = `
 💰 **Balance de tu Wallet**
 
-**XLM:** ${xlmBalance.toFixed(7)} XLM
+**XLM:** ${balance.toFixed(7)} XLM
 **USD:** $${usdValue.toFixed(2)}
 **Precio XLM:** $${price.toFixed(6)}
 
-**Wallet:** \`${wallet.publicKey}\`
+**💰 Clave Pública (Para Recibir Fondos):**
+\`${wallet.publicKey}\`
+*Copia esta clave para recibir XLM de otras wallets*
 
-**Última actualización:** ${new Date().toLocaleString()}
-    `;
+**Estado:** ${balance > 0 ? '✅ Fondada' : '❌ Sin fondos'}
+
+`;
+
+    if (isNewWallet) {
+      balanceMessage += `⏰ **Temporizador de Red:**
+**Tiempo restante:** ${remainingTime} segundos
+**Estado:** Wallet nueva, esperando propagación...
+
+**⚠️ No puedes hacer swaps/trading hasta que termine el temporizador**
+
+`;
+    } else {
+      balanceMessage += `✅ **Wallet Lista:**
+**Estado:** Lista para swaps y trading
+
+`;
+    }
+
+    balanceMessage += `**Última actualización:** ${new Date().toLocaleString()}`;
     
     const keyboard = {
       reply_markup: {
@@ -438,7 +964,8 @@ bot.onText(/\/balance/, async (msg) => {
     bot.sendMessage(chatId, balanceMessage, { parse_mode: 'Markdown', ...keyboard });
     
   } catch (error) {
-    bot.sendMessage(chatId, '❌ Error obteniendo balance. Intenta de nuevo.');
+    console.error('Error obteniendo balance:', error);
+    bot.sendMessage(chatId, `❌ Error obteniendo balance: ${error.message}`);
   }
 });
 
@@ -447,17 +974,28 @@ bot.onText(/\/price/, async (msg) => {
   const chatId = msg.chat.id;
   
   try {
-    const price = await getXlmPrice();
+    const [xlmPrice, usdcPrice] = await Promise.all([
+      getXlmPrice(),
+      getUsdcPrice()
+    ]);
+    
+    // Obtener datos adicionales de CoinGecko
+    const coingeckoResponse = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true');
+    const coingeckoData = coingeckoResponse.data.stellar;
     
     const priceMessage = `
-📊 **Precio de XLM**
+📊 **Precios Reales de Stellar DEX**
 
-**Precio actual:** $${price.toFixed(6)} USD
+**XLM (Soroswap):** $${xlmPrice.toFixed(6)} USD
+**USDC (Soroswap):** $${usdcPrice.toFixed(6)} USD
+
+**Referencia CoinGecko:**
+• XLM: $${coingeckoData?.usd?.toFixed(6) || 'N/A'} USD
+• Cambio 24h: ${coingeckoData?.usd_24h_change?.toFixed(2) || 'N/A'}% ${coingeckoData?.usd_24h_change >= 0 ? '📈' : '📉'}
+• Volumen 24h: $${(coingeckoData?.usd_24h_vol / 1000000)?.toFixed(2) || 'N/A'}M
+
 **Red:** Stellar Testnet
 **Actualizado:** ${new Date().toLocaleString()}
-
-**Cambio 24h:** +2.5% 📈
-**Volumen 24h:** $1.2M
     `;
     
     const keyboard = {
@@ -488,33 +1026,85 @@ bot.on('callback_query', async (callbackQuery) => {
     await bot.answerCallbackQuery(callbackQuery.id);
     
     if (data === 'create_wallet') {
+      // Mostrar mensaje de creación
+      await bot.editMessageText('🔑 **Creando wallet...**\n\nPor favor espera...', {
+        chat_id: chatId,
+        message_id: message.message_id,
+        parse_mode: 'Markdown'
+      });
+      
       const wallet = generateStellarWallet();
       const encryptedSecret = encrypt(wallet.secretKey);
       
-      userWallets.set(chatId, {
-        publicKey: wallet.publicKey,
-        secretKey: encryptedSecret,
-        createdAt: Date.now()
-      });
-      
-      const walletMessage = `
-🔑 **Wallet Creada Exitosamente!**
+      // Mostrar mensaje de wallet creada
+      await bot.editMessageText(`🔑 **Wallet Creada!**
 
 **Clave Pública:**
 \`${wallet.publicKey}\`
 
-**Clave Privada:**
+**Estado:** ⏳ Esperando fondeo...
+**Red:** Stellar Testnet
+
+🌐 **Ver en Explorador:**
+[Testnet Explorer](https://stellar.expert/explorer/testnet/account/${wallet.publicKey})
+*La wallet aparecerá vacía hasta que se fondee*
+
+💰 **Fondeando con 10,000 XLM...**`, {
+        chat_id: chatId,
+        message_id: message.message_id,
+        parse_mode: 'Markdown'
+      });
+      
+      // Pequeña pausa para que el usuario vea la wallet
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Mostrar mensaje de fondeo
+      await bot.editMessageText('💰 **Fondeando wallet con 10,000 XLM...**\n\nConectando con Stellar testnet...', {
+        chat_id: chatId,
+        message_id: message.message_id,
+        parse_mode: 'Markdown'
+      });
+      
+      // Fondear la wallet
+      const fundResult = await fundWallet(wallet.publicKey);
+      
+      userWallets.set(chatId, {
+        publicKey: wallet.publicKey,
+        secretKey: encryptedSecret,
+        createdAt: Date.now(),
+        balance: fundResult.balance,
+        funded: fundResult.success
+      });
+      
+      const walletMessage = `
+🔑 **Wallet Creada y Fondada Exitosamente!**
+
+**💰 Clave Pública (Para Recibir Fondos):**
+\`${wallet.publicKey}\`
+*Copia esta clave para recibir XLM de otras wallets*
+
+**🔐 Clave Privada (MANTENER SECRETA):**
 \`${wallet.secretKey}\`
 
-⚠️ **IMPORTANTE:** Guarda tu clave privada en un lugar seguro!
-
-**Estado:** ✅ Activa
+**Balance XLM:** ${fundResult.balance.toFixed(7)} XLM
+**Estado:** ${fundResult.success ? '✅ Fondada' : '❌ Error de fondeo'}
 **Red:** Stellar Testnet
-**Fondeo:** Automático en testnet
+
+🌐 **Ver en Explorador:**
+[Testnet Explorer](https://stellar.expert/explorer/testnet/account/${wallet.publicKey})
+*Haz clic para ver tu wallet con balance real*
+
+⚠️ **IMPORTANTE:** 
+• Guarda tu clave privada en un lugar seguro
+• Comparte SOLO la clave pública para recibir fondos
+
+⏰ **Temporizador de Red:**
+La wallet necesita 60 segundos para propagarse en la red antes de poder hacer swaps.
 
 **Próximos pasos:**
+• Espera 60 segundos antes de hacer tu primer swap
 • Usa /balance para ver tu balance
-• Usa /swap para hacer tu primer swap
+• Usa /swap después del temporizador
 • Usa /trade para abrir posiciones
       `;
       
@@ -524,6 +1114,9 @@ bot.on('callback_query', async (callbackQuery) => {
             [
               { text: '💰 Ver Balance', callback_data: 'view_balance' },
               { text: '🔄 Hacer Swap', callback_data: 'make_swap' }
+            ],
+            [
+              { text: '📋 Copiar Clave Pública', callback_data: 'copy_public_key' }
             ]
           ]
         }
@@ -537,23 +1130,49 @@ bot.on('callback_query', async (callbackQuery) => {
       });
       
     } else if (data === 'view_balance') {
-      // Simular balance
+      const wallet = userWallets.get(chatId);
+      if (!wallet) {
+        await bot.editMessageText('❌ No tienes una wallet creada. Usa /wallet para crear una.', {
+          chat_id: chatId,
+          message_id: message.message_id,
+          parse_mode: 'Markdown'
+        });
+        return;
+      }
+      
+      // Obtener precio actual de XLM
+      const price = await getXlmPrice();
+      const usdValue = wallet.balance * price;
+      
       const balanceMessage = `
 💰 **Balance de tu Wallet**
 
-**XLM:** 1000.0000000 XLM
-**USD:** $150.00
-**Precio XLM:** $0.150000
+**XLM:** ${wallet.balance.toFixed(7)} XLM
+**USD:** $${usdValue.toFixed(2)}
+**Precio XLM:** $${price.toFixed(6)}
 
-**Wallet:** \`${userWallets.get(chatId)?.publicKey || 'N/A'}\`
+**Wallet:** \`${wallet.publicKey}\`
+**Estado:** ${wallet.funded ? '✅ Fondada' : '❌ No fondada'}
 
 **Última actualización:** ${new Date().toLocaleString()}
       `;
       
+      const keyboard = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🔄 Actualizar', callback_data: 'refresh_balance' },
+              { text: '📊 Ver Precios', callback_data: 'view_prices' }
+            ]
+          ]
+        }
+      };
+      
       await bot.editMessageText(balanceMessage, {
         chat_id: chatId,
         message_id: message.message_id,
-        parse_mode: 'Markdown'
+        parse_mode: 'Markdown',
+        ...keyboard
       });
       
     } else if (data === 'view_prices') {
@@ -582,6 +1201,8 @@ bot.on('callback_query', async (callbackQuery) => {
 **Cantidad sugerida:** 10 XLM
 **Destino:** USDC
 **Red:** Stellar Testnet
+
+**Nota:** Actualmente solo soportamos swaps a USDC
 
 **Usa el comando:**
 \`/swap 10 XLM\`
@@ -614,12 +1235,24 @@ bot.on('callback_query', async (callbackQuery) => {
       
     } else if (data.startsWith('swap_')) {
       const amount = data.replace('swap_', '');
+      
+      if (!userWallets.has(chatId)) {
+        await bot.editMessageText('❌ **Error:** No tienes una wallet creada. Usa /start para crear una.', {
+          chat_id: chatId,
+          message_id: message.message_id,
+          parse_mode: 'Markdown'
+        });
+        return;
+      }
+      
+      const wallet = userWallets.get(chatId);
+      const secretKey = decrypt(wallet.secretKey);
+      
       const swapMessage = `
-🔄 **Iniciando Swap de ${amount} XLM**
+🔄 **Iniciando Swap REAL de ${amount} XLM**
 
-**Cantidad:** ${amount} XLM
-**Destino:** USDC
-**Estado:** Obteniendo cotización...
+**Cantidad:** ${amount} XLM → USDC
+**Estado:** Obteniendo cotización de Soroswap...
 
 **Por favor espera...**
       `;
@@ -630,34 +1263,126 @@ bot.on('callback_query', async (callbackQuery) => {
         parse_mode: 'Markdown'
       });
       
-      // Simular swap
-      setTimeout(async () => {
-        const successMessage = `
-✅ **Swap Exitoso!**
+      try {
+        // 1. Obtener cotización real
+        const quote = await getSwapQuote(amount);
+        if (!quote) {
+          throw new Error('No se pudo obtener cotización de Soroswap');
+        }
+        
+        // 2. Ejecutar swap real
+        await bot.editMessageText(`
+🔄 **Ejecutando Swap REAL de ${amount} XLM**
 
 **Cantidad:** ${amount} XLM → USDC
-**Hash:** \`daa4df25...\`
-**Ledger:** 12345678
-**Red:** Stellar Testnet
+**Estado:** Ejecutando transacción...
 
-**¡Tu swap se ha completado exitosamente!** 🎉
-        `;
-        
-        await bot.editMessageText(successMessage, {
+**Nota:** Si es tu primer swap, se creará trustline para USDC primero
+
+**Por favor espera...**
+        `, {
           chat_id: chatId,
           message_id: message.message_id,
           parse_mode: 'Markdown'
         });
-      }, 3000);
+        
+        const swapResult = await executeSwap(wallet.publicKey, secretKey, amount, quote);
+        
+        if (swapResult.success) {
+          let successMessage = `
+✅ **Swap REAL Exitoso!**
+
+**Cantidad:** ${amount} XLM → USDC
+**Hash:** \`${swapResult.hash}\`
+**Ledger:** ${swapResult.ledger}
+**Red:** Stellar Testnet
+
+🌐 **Ver Comprobante:**
+[Explorador de Transacción](https://stellar.expert/explorer/testnet/tx/${swapResult.hash})
+*Haz clic para ver el comprobante en el explorador*
+          `;
+          
+          // Si se creó trustline, mostrarlo
+          if (swapResult.trustlineHash) {
+            successMessage += `
+
+🔗 **Trustline Creada:**
+[Ver Trustline](https://stellar.expert/explorer/testnet/tx/${swapResult.trustlineHash})
+*Se creó trustline para USDC antes del swap*
+            `;
+          }
+          
+          successMessage += `
+
+**Nota:** Actualmente solo soportamos swaps a USDC
+
+**¡Tu swap REAL se ha completado exitosamente!** 🎉
+          `;
+          
+          await bot.editMessageText(successMessage, {
+            chat_id: chatId,
+            message_id: message.message_id,
+            parse_mode: 'Markdown'
+          });
+        } else {
+          throw new Error(swapResult.message);
+        }
+        
+      } catch (error) {
+        console.error('❌ Error ejecutando swap REAL:', error);
+        
+        let errorMessage = `
+❌ **Error en Swap REAL**
+
+**Cantidad:** ${amount} XLM → USDC
+**Error:** ${error.message}
+        `;
+        
+        if (error.message.includes('Rate limit')) {
+          errorMessage += `
+
+⏰ **Rate Limit Excedido**
+La API de Soroswap está temporalmente saturada. Por favor intenta en unos minutos.
+
+**Sugerencias:**
+• Espera 2-3 minutos antes de intentar de nuevo
+• Prueba con una cantidad menor
+• Usa /balance para verificar tu wallet
+          `;
+        } else {
+          errorMessage += `
+
+**Por favor intenta de nuevo o contacta soporte.**
+          `;
+        }
+        
+        await bot.editMessageText(errorMessage, {
+          chat_id: chatId,
+          message_id: message.message_id,
+          parse_mode: 'Markdown'
+        });
+      }
       
     } else if (data.startsWith('confirm_swap_')) {
       const amount = data.replace('confirm_swap_', '');
       
+      if (!userWallets.has(chatId)) {
+        await bot.editMessageText('❌ **Error:** No tienes una wallet creada. Usa /start para crear una.', {
+          chat_id: chatId,
+          message_id: message.message_id,
+          parse_mode: 'Markdown'
+        });
+        return;
+      }
+      
+      const wallet = userWallets.get(chatId);
+      const secretKey = decrypt(wallet.secretKey);
+      
       const processingMessage = `
-🚀 **Ejecutando Swap...**
+🚀 **Ejecutando Swap REAL...**
 
-**Cantidad:** ${amount} XLM
-**Estado:** Procesando transacción...
+**Cantidad:** ${amount} XLM → USDC
+**Estado:** Obteniendo cotización...
 
 **Por favor espera...**
       `;
@@ -668,25 +1393,118 @@ bot.on('callback_query', async (callbackQuery) => {
         parse_mode: 'Markdown'
       });
       
-      // Simular ejecución
-      setTimeout(async () => {
-        const successMessage = `
-✅ **Swap Exitoso!**
+      try {
+        // 1. Obtener cotización real
+        await bot.editMessageText(`
+🚀 **Ejecutando Swap REAL...**
 
 **Cantidad:** ${amount} XLM → USDC
-**Hash:** \`daa4df25...\`
-**Ledger:** 12345678
-**Red:** Stellar Testnet
+**Estado:** Obteniendo cotización de Soroswap...
 
-**¡Tu swap se ha completado exitosamente!** 🎉
-        `;
-        
-        await bot.editMessageText(successMessage, {
+**Nota:** Si hay rate limit, se reintentará automáticamente
+
+**Por favor espera...**
+        `, {
           chat_id: chatId,
           message_id: message.message_id,
           parse_mode: 'Markdown'
         });
-      }, 3000);
+        
+        const quote = await getSwapQuote(amount);
+        if (!quote) {
+          throw new Error('No se pudo obtener cotización de Soroswap después de múltiples intentos');
+        }
+        
+        // 2. Ejecutar swap real
+        await bot.editMessageText(`
+🚀 **Ejecutando Swap REAL...**
+
+**Cantidad:** ${amount} XLM → USDC
+**Estado:** Ejecutando transacción...
+
+**Por favor espera...**
+        `, {
+          chat_id: chatId,
+          message_id: message.message_id,
+          parse_mode: 'Markdown'
+        });
+        
+        const swapResult = await executeSwap(wallet.publicKey, secretKey, amount, quote);
+        
+        if (swapResult.success) {
+          let successMessage = `
+✅ **Swap REAL Exitoso!**
+
+**Cantidad:** ${amount} XLM → USDC
+**Hash:** \`${swapResult.hash}\`
+**Ledger:** ${swapResult.ledger}
+**Red:** Stellar Testnet
+
+🌐 **Ver Comprobante:**
+[Explorador de Transacción](https://stellar.expert/explorer/testnet/tx/${swapResult.hash})
+*Haz clic para ver el comprobante en el explorador*
+          `;
+          
+          // Si se creó trustline, mostrarlo
+          if (swapResult.trustlineHash) {
+            successMessage += `
+
+🔗 **Trustline Creada:**
+[Ver Trustline](https://stellar.expert/explorer/testnet/tx/${swapResult.trustlineHash})
+*Se creó trustline para USDC antes del swap*
+            `;
+          }
+          
+          successMessage += `
+
+**Nota:** Actualmente solo soportamos swaps a USDC
+
+**¡Tu swap REAL se ha completado exitosamente!** 🎉
+          `;
+          
+          await bot.editMessageText(successMessage, {
+            chat_id: chatId,
+            message_id: message.message_id,
+            parse_mode: 'Markdown'
+          });
+        } else {
+          throw new Error(swapResult.message);
+        }
+        
+      } catch (error) {
+        console.error('❌ Error ejecutando swap REAL:', error);
+        
+        let errorMessage = `
+❌ **Error en Swap REAL**
+
+**Cantidad:** ${amount} XLM → USDC
+**Error:** ${error.message}
+        `;
+        
+        if (error.message.includes('Rate limit')) {
+          errorMessage += `
+
+⏰ **Rate Limit Excedido**
+La API de Soroswap está temporalmente saturada. Por favor intenta en unos minutos.
+
+**Sugerencias:**
+• Espera 2-3 minutos antes de intentar de nuevo
+• Prueba con una cantidad menor
+• Usa /balance para verificar tu wallet
+          `;
+        } else {
+          errorMessage += `
+
+**Por favor intenta de nuevo o contacta soporte.**
+          `;
+        }
+        
+        await bot.editMessageText(errorMessage, {
+          chat_id: chatId,
+          message_id: message.message_id,
+          parse_mode: 'Markdown'
+        });
+      }
       
     } else if (data.startsWith('trade_')) {
       const [_, type, leverage] = data.split('_');
@@ -833,11 +1651,374 @@ Usa /trade para abrir una nueva posición.
         ...keyboard
       });
       
+    } else if (data === 'refresh_balance') {
+      const wallet = userWallets.get(chatId);
+      if (!wallet) {
+        await bot.editMessageText('❌ No tienes una wallet creada. Usa /wallet para crear una.', {
+          chat_id: chatId,
+          message_id: message.message_id,
+          parse_mode: 'Markdown'
+        });
+        return;
+      }
+      
+      // Actualizar balance desde la red
+      await bot.editMessageText('🔄 **Actualizando balance...**\n\nConsultando Stellar testnet...', {
+        chat_id: chatId,
+        message_id: message.message_id,
+        parse_mode: 'Markdown'
+      });
+      
+      try {
+        const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+        const account = await server.loadAccount(wallet.publicKey);
+        const xlmBalance = account.balances.find(balance => balance.asset_type === 'native');
+        
+        // Actualizar balance en memoria
+        wallet.balance = parseFloat(xlmBalance.balance);
+        userWallets.set(chatId, wallet);
+        
+        // Obtener precio actual
+        const price = await getXlmPrice();
+        const usdValue = wallet.balance * price;
+        
+        const balanceMessage = `
+💰 **Balance Actualizado**
+
+**XLM:** ${wallet.balance.toFixed(7)} XLM
+**USD:** $${usdValue.toFixed(2)}
+**Precio XLM:** $${price.toFixed(6)}
+
+**Wallet:** \`${wallet.publicKey}\`
+**Estado:** ✅ Fondada
+
+**Última actualización:** ${new Date().toLocaleString()}
+        `;
+        
+        const keyboard = {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '🔄 Actualizar', callback_data: 'refresh_balance' },
+                { text: '📊 Ver Precios', callback_data: 'view_prices' }
+              ]
+            ]
+          }
+        };
+        
+        await bot.editMessageText(balanceMessage, {
+          chat_id: chatId,
+          message_id: message.message_id,
+          parse_mode: 'Markdown',
+          ...keyboard
+        });
+        
+      } catch (error) {
+        await bot.editMessageText(`❌ Error actualizando balance: ${error.message}`, {
+          chat_id: chatId,
+          message_id: message.message_id,
+          parse_mode: 'Markdown'
+        });
+      }
+      
     } else if (data === 'cancel') {
       await bot.editMessageText('❌ Operación cancelada.', {
         chat_id: chatId,
         message_id: message.message_id
       });
+    } else if (data === 'copy_public_key') {
+      const wallet = userWallets.get(chatId);
+      if (!wallet) {
+        await bot.editMessageText('❌ No tienes una wallet creada.', {
+          chat_id: chatId,
+          message_id: message.message_id,
+          parse_mode: 'Markdown'
+        });
+        return;
+      }
+      
+      const copyMessage = `
+📋 **Clave Pública para Copiar**
+
+**💰 Clave Pública:**
+\`${wallet.publicKey}\`
+
+**Instrucciones:**
+1. Toca y mantén presionado el texto de arriba
+2. Selecciona "Copiar"
+3. Comparte esta clave para recibir XLM
+
+**⚠️ Importante:**
+• Esta es tu clave PÚBLICA (segura de compartir)
+• NUNCA compartas tu clave privada
+• Solo usa esta clave para recibir fondos
+
+**Comandos:**
+/wallet - Ver información completa de tu wallet
+/balance - Ver balance actual
+      `;
+      
+      await bot.editMessageText(copyMessage, {
+        chat_id: chatId,
+        message_id: message.message_id,
+        parse_mode: 'Markdown'
+      });
+    } else if (data.startsWith('trade_')) {
+      // Manejar callbacks de trading
+      const wallet = userWallets.get(chatId);
+      if (!wallet) {
+        await bot.editMessageText('❌ No tienes una wallet creada. Usa /wallet para crear una.', {
+          chat_id: chatId,
+          message_id: message.message_id,
+          parse_mode: 'Markdown'
+        });
+        return;
+      }
+      
+      // Verificar si la wallet es nueva (menos de 60 segundos)
+      const walletAge = Date.now() - wallet.createdAt;
+      const isNewWallet = walletAge < 60000; // 60 segundos
+      
+      if (isNewWallet) {
+        const remainingTime = Math.ceil((60000 - walletAge) / 1000);
+        const waitMessage = `
+⏰ **Wallet Nueva Detectada**
+
+**Tiempo restante:** ${remainingTime} segundos
+**Estado:** Esperando propagación en la red...
+
+**¿Por qué?**
+Las wallets nuevas necesitan tiempo para propagarse en Stellar testnet antes de poder hacer trading.
+
+**Próximos pasos:**
+• Espera ${remainingTime} segundos más
+• Luego usa /trade nuevamente
+• O usa /balance para verificar tu wallet
+
+🔄 **Reintentar en ${remainingTime}s...**
+        `;
+        
+        await bot.editMessageText(waitMessage, {
+          chat_id: chatId,
+          message_id: message.message_id,
+          parse_mode: 'Markdown'
+        });
+        return;
+      }
+      
+      // Parsear datos del trade
+      const parts = data.split('_');
+      const tradeType = parts[1]; // long o short
+      const leverage = parseInt(parts[2].replace('x', '')); // 2 o 5
+      const amount = 100; // Cantidad fija por ahora
+      
+      try {
+        // Mostrar mensaje de inicio
+        await bot.editMessageText(`📈 **Iniciando Trade REAL**
+
+**Configuración:**
+• **Tipo:** ${tradeType.toUpperCase()}
+• **Leverage:** ${leverage}x
+• **Cantidad:** ${amount} XLM
+• **Wallet:** ${wallet.publicKey.slice(0, 8)}...
+
+**Estado:** Obteniendo cotización...`, {
+          chat_id: chatId,
+          message_id: message.message_id,
+          parse_mode: 'Markdown'
+        });
+        
+        // Obtener cotización
+        const quote = await getTradeQuote(amount, leverage, tradeType);
+        
+        if (!quote) {
+          await bot.editMessageText('❌ Error obteniendo cotización de trading. Intenta de nuevo.', {
+            chat_id: chatId,
+            message_id: message.message_id,
+            parse_mode: 'Markdown'
+          });
+          return;
+        }
+        
+        // Mostrar cotización y confirmar
+        const quoteMessage = `
+📈 **Cotización de Trading**
+
+**Configuración:**
+• **Tipo:** ${tradeType.toUpperCase()}
+• **Leverage:** ${leverage}x
+• **Cantidad:** ${amount} XLM
+
+**Cotización:**
+• **Precio Entrada:** $${quote.entryPrice || 'N/A'}
+• **Liquidation Price:** $${quote.liquidationPrice || 'N/A'}
+• **Margen Requerido:** ${quote.marginRequired || 'N/A'} XLM
+
+**¿Confirmar este trade?**
+        `;
+        
+        const confirmKeyboard = {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '✅ Confirmar Trade', callback_data: `confirm_trade_${tradeType}_${leverage}x_${amount}` },
+                { text: '❌ Cancelar', callback_data: 'cancel' }
+              ]
+            ]
+          }
+        };
+        
+        await bot.editMessageText(quoteMessage, {
+          chat_id: chatId,
+          message_id: message.message_id,
+          parse_mode: 'Markdown',
+          ...confirmKeyboard
+        });
+        
+      } catch (error) {
+        console.error('Error en trading:', error);
+        await bot.editMessageText(`❌ Error procesando el trade: ${error.message}`, {
+          chat_id: chatId,
+          message_id: message.message_id,
+          parse_mode: 'Markdown'
+        });
+      }
+      
+    } else if (data.startsWith('confirm_trade_')) {
+      // Confirmar trade
+      const wallet = userWallets.get(chatId);
+      if (!wallet) {
+        await bot.editMessageText('❌ No tienes una wallet creada.', {
+          chat_id: chatId,
+          message_id: message.message_id,
+          parse_mode: 'Markdown'
+        });
+        return;
+      }
+      
+      // Parsear datos del trade
+      const parts = data.split('_');
+      const tradeType = parts[2]; // long o short
+      const leverage = parseInt(parts[3].replace('x', '')); // 2 o 5
+      const amount = parseInt(parts[4]); // 100
+      
+      try {
+        // Mostrar mensaje de ejecución
+        await bot.editMessageText(`🔄 **Ejecutando Trade REAL**
+
+**Configuración:**
+• **Tipo:** ${tradeType.toUpperCase()}
+• **Leverage:** ${leverage}x
+• **Cantidad:** ${amount} XLM
+
+**Estado:** Procesando transacción...`, {
+          chat_id: chatId,
+          message_id: message.message_id,
+          parse_mode: 'Markdown'
+        });
+        
+        // Obtener cotización nuevamente
+        const quote = await getTradeQuote(amount, leverage, tradeType);
+        
+        if (!quote) {
+          await bot.editMessageText('❌ Error obteniendo cotización. Intenta de nuevo.', {
+            chat_id: chatId,
+            message_id: message.message_id,
+            parse_mode: 'Markdown'
+          });
+          return;
+        }
+        
+        // Ejecutar trade
+        const tradeResult = await executeTrade(
+          wallet.publicKey,
+          decrypt(wallet.secretKey),
+          amount,
+          leverage,
+          tradeType,
+          quote
+        );
+        
+        if (tradeResult.success) {
+          // Agregar posición a la lista del usuario
+          if (!userPositions.has(chatId)) {
+            userPositions.set(chatId, []);
+          }
+          
+          const position = {
+            id: Date.now(),
+            type: tradeType,
+            leverage: leverage,
+            amount: amount,
+            entryPrice: quote.entryPrice || 0,
+            liquidationPrice: quote.liquidationPrice || 0,
+            pnl: 0,
+            status: 'Activa',
+            createdAt: Date.now(),
+            hash: tradeResult.hash,
+            ledger: tradeResult.ledger
+          };
+          
+          userPositions.get(chatId).push(position);
+          
+          const successMessage = `
+✅ **Trade REAL Ejecutado Exitosamente!**
+
+**Configuración:**
+• **Tipo:** ${tradeType.toUpperCase()}
+• **Leverage:** ${leverage}x
+• **Cantidad:** ${amount} XLM
+• **Precio Entrada:** $${quote.entryPrice || 'N/A'}
+
+**Transacción:**
+• **Hash:** \`${tradeResult.hash}\`
+• **Ledger:** ${tradeResult.ledger}
+
+🌐 **Ver en Explorador:**
+[Testnet Explorer](https://stellar.expert/explorer/testnet/tx/${tradeResult.hash})
+
+**Próximos pasos:**
+• Usa /positions para ver tus posiciones
+• Usa /balance para ver tu balance actualizado
+          `;
+          
+          const keyboard = {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '📊 Ver Posiciones', callback_data: 'view_positions' },
+                  { text: '💰 Ver Balance', callback_data: 'view_balance' }
+                ],
+                [
+                  { text: '📈 Nueva Posición', callback_data: 'trading_menu' }
+                ]
+              ]
+            }
+          };
+          
+          await bot.editMessageText(successMessage, {
+            chat_id: chatId,
+            message_id: message.message_id,
+            parse_mode: 'Markdown',
+            ...keyboard
+          });
+          
+        } else {
+          await bot.editMessageText(`❌ Error ejecutando trade: ${tradeResult.message}`, {
+            chat_id: chatId,
+            message_id: message.message_id,
+            parse_mode: 'Markdown'
+          });
+        }
+        
+      } catch (error) {
+        console.error('Error ejecutando trade:', error);
+        await bot.editMessageText(`❌ Error ejecutando trade: ${error.message}`, {
+          chat_id: chatId,
+          message_id: message.message_id,
+          parse_mode: 'Markdown'
+        });
+      }
     }
     
   } catch (error) {

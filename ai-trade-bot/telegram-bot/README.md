@@ -1,161 +1,220 @@
-# 🤖 Bot de Telegram - AI Trading Bot
+# 🤖 Bot de Trading Completo para Telegram
 
-Bot de Telegram para trading automático en Stellar usando Soroswap.
+Un bot de Telegram que permite hacer trading y swaps completos en Stellar directamente desde Telegram.
 
-## 🚀 Características
+## ✨ Características
 
-- **Swaps Automáticos**: Intercambia XLM ↔ USDC con comandos de texto
-- **Cotizaciones Reales**: Usa la API de Soroswap para precios actuales
-- **Interfaz Intuitiva**: Comandos simples y claros
-- **Confirmación de Transacciones**: Sistema de confirmación antes de ejecutar
-- **Precios en Tiempo Real**: Consulta precios actuales de XLM
+### 🔐 **Gestión de Wallet**
+- Crear wallet Stellar segura dentro del bot
+- Encriptación de claves privadas
+- Fondeo automático en testnet
+- Exportar/importar wallets
 
-## 📱 Comandos Disponibles
+### 🔄 **Swaps Automáticos**
+- XLM ↔ USDC instantáneos
+- Integración con Soroswap API
+- Mejores tasas de cambio
+- Confirmación en segundos
 
-| Comando | Descripción | Ejemplo |
-|---------|-------------|---------|
-| `/start` | Iniciar el bot | `/start` |
-| `/help` | Mostrar ayuda | `/help` |
-| `/swap <cantidad> XLM` | Hacer swap de XLM a USDC | `/swap 5 XLM` |
-| `/price` | Ver precio actual de XLM | `/price` |
-| `/balance` | Ver balance (simulado) | `/balance` |
-| `/status` | Ver estado de transacción | `/status` |
+### 📈 **Trading de Perpetuos**
+- Abrir posiciones long/short
+- Leverage hasta 10x
+- Cerrar posiciones automáticamente
+- Cálculo de PnL en tiempo real
 
-## 🛠️ Instalación
+### 📊 **Gestión Completa**
+- Ver balances en tiempo real
+- Historial de transacciones
+- Precios actualizados
+- Notificaciones de estado
 
-1. **Instalar dependencias:**
+## 🚀 Instalación
+
+### 1. **Configurar el Bot de Telegram**
+```bash
+# 1. Habla con @BotFather en Telegram
+# 2. Crea un nuevo bot con /newbot
+# 3. Copia el token que te da
+```
+
+### 2. **Configurar Variables de Entorno**
+```bash
+# Copia el archivo de configuración
+cp config.env.example config.env
+
+# Edita config.env con tus datos
+nano config.env
+```
+
+**Variables requeridas:**
+```env
+TELEGRAM_BOT_TOKEN=tu_token_aqui
+API_BASE_URL=http://localhost:3000
+ENCRYPTION_KEY=tu-clave-de-32-caracteres
+```
+
+### 3. **Instalar Dependencias**
 ```bash
 npm install
 ```
 
-2. **Configurar variables de entorno:**
+### 4. **Iniciar el Bot**
 ```bash
-cp config.example.env .env
+# Opción 1: Script automático
+./start-bot.sh
+
+# Opción 2: Manual
+node complete-trading-bot.js
 ```
 
-3. **Editar `.env` con tu token de bot:**
-```env
-TELEGRAM_BOT_TOKEN=TU_BOT_TOKEN_AQUI
-API_BASE_URL=http://localhost:3000
+## 📱 Comandos del Bot
+
+### **Comandos Básicos**
+- `/start` - Iniciar el bot y ver menú principal
+- `/help` - Ver todos los comandos disponibles
+- `/wallet` - Crear/gestionar tu wallet Stellar
+
+### **Trading y Swaps**
+- `/swap 10 XLM` - Hacer swap de 10 XLM a USDC
+- `/trade` - Abrir nueva posición de trading
+- `/positions` - Ver posiciones activas
+- `/close` - Cerrar posición específica
+
+### **Información**
+- `/balance` - Ver balance de tu wallet
+- `/price` - Ver precio actual de XLM
+- `/status` - Estado de transacciones
+
+## 🔧 Funcionalidades Técnicas
+
+### **Seguridad**
+- ✅ Claves privadas encriptadas localmente
+- ✅ No se almacenan claves en texto plano
+- ✅ Confirmación requerida para transacciones
+- ✅ Validación de todas las operaciones
+
+### **Integración**
+- ✅ API de Soroswap para swaps reales
+- ✅ Contratos Stellar para trading
+- ✅ Red testnet para pruebas
+- ✅ Precios en tiempo real
+
+### **Experiencia de Usuario**
+- ✅ Interfaz intuitiva con botones
+- ✅ Confirmaciones visuales
+- ✅ Estados de transacción claros
+- ✅ Notificaciones en tiempo real
+
+## 🎯 Flujo de Uso
+
+### **1. Primer Uso**
+```
+1. /start - Iniciar bot
+2. /wallet - Crear wallet
+3. /balance - Ver balance
+4. /swap 10 XLM - Hacer primer swap
 ```
 
-4. **Iniciar el bot:**
-```bash
-npm start
+### **2. Trading**
+```
+1. /trade - Abrir posición
+2. Elegir tipo (long/short) y leverage
+3. Confirmar posición
+4. /positions - Ver posiciones activas
 ```
 
-## 🔧 Configuración del Bot
-
-### 1. Crear Bot en Telegram
-
-1. Habla con [@BotFather](https://t.me/botfather) en Telegram
-2. Usa el comando `/newbot`
-3. Sigue las instrucciones para crear tu bot
-4. Copia el token y pégalo en `.env`
-
-### 2. Configurar Webhook (Opcional)
-
-Para producción, puedes usar webhooks en lugar de polling:
-
-```javascript
-// En index.js, reemplazar polling con webhook
-bot.setWebHook('https://tu-dominio.com/webhook');
+### **3. Gestión**
 ```
-
-## 📊 Flujo de Uso
-
-1. **Iniciar conversación**: `/start`
-2. **Ver precio**: `/price`
-3. **Hacer swap**: `/swap 5 XLM`
-4. **Confirmar**: Responde "SÍ" cuando se te pida
-5. **Ver resultado**: El bot te mostrará el hash de la transacción
+1. /balance - Ver balance actualizado
+2. /price - Ver precios
+3. /positions - Gestionar posiciones
+4. /close - Cerrar posiciones
+```
 
 ## 🔒 Seguridad
 
-- **Testnet**: El bot funciona en Stellar Testnet para pruebas
-- **Confirmación**: Requiere confirmación antes de ejecutar swaps
-- **Validación**: Valida cantidades y formatos antes de procesar
+### **Almacenamiento de Claves**
+- Las claves privadas se encriptan con AES-256
+- Solo el usuario puede acceder a sus claves
+- Las claves se pueden exportar/importar
 
-## 🚀 Ejemplo de Conversación
+### **Transacciones**
+- Todas las transacciones requieren confirmación
+- Validación de cantidades y parámetros
+- Manejo de errores robusto
 
-```
-Usuario: /start
-Bot: 🤖 AI Trading Bot - Stellar Swaps
-     ¡Hola! Soy tu asistente de trading automático...
+### **Red**
+- Funciona en Stellar testnet para pruebas
+- Fácil migración a mainnet
+- Transacciones reales con Soroswap
 
-Usuario: /price
-Bot: 📊 Obteniendo precio de XLM...
-     💰 Precio de XLM
-     • Precio actual: $0.1234 USD
-     • Red: Stellar Testnet
+## 🚀 Despliegue
 
-Usuario: /swap 5 XLM
-Bot: 🔄 Iniciando Swap
-     • Cantidad: 5 XLM
-     • Destino: USDC
-     • Estado: Obteniendo cotización...
-     
-     📊 Cotización Obtenida
-     • Entrada: 5 XLM
-     • Salida: ~4.85 USDC
-     • Impacto de precio: 0.00%
-     
-     ¿Confirmas el swap? Responde "SÍ" para continuar.
+### **Desarrollo Local**
+```bash
+# Iniciar API local
+cd ../src
+npm run dev
 
-Usuario: SÍ
-Bot: 🚀 Ejecutando swap...
-     
-     ✅ Swap Exitoso!
-     • Cantidad: 5 XLM → USDC
-     • Hash: DEMO_HASH_123
-     • Ledger: 123456
-     
-     ¡Tu swap se ha completado exitosamente! 🎉
+# Iniciar bot
+cd ../telegram-bot
+npm start
 ```
 
-## 🔧 Desarrollo
+### **Producción**
+```bash
+# Usar PM2 para gestión de procesos
+npm install -g pm2
+pm2 start complete-trading-bot.js --name "stellar-bot"
+pm2 save
+pm2 startup
+```
 
-### Estructura del Proyecto
+## 📊 Monitoreo
 
+### **Logs**
+```bash
+# Ver logs del bot
+pm2 logs stellar-bot
+
+# Ver logs en tiempo real
+pm2 logs stellar-bot --lines 100
+```
+
+### **Estado**
+```bash
+# Ver estado del bot
+pm2 status
+
+# Reiniciar bot
+pm2 restart stellar-bot
+```
+
+## 🛠️ Desarrollo
+
+### **Estructura del Código**
 ```
 telegram-bot/
-├── index.js          # Código principal del bot
-├── package.json      # Dependencias
-├── config.example.env # Configuración de ejemplo
-└── README.md         # Documentación
+├── complete-trading-bot.js  # Bot principal
+├── config.env              # Configuración
+├── package.json            # Dependencias
+├── start-bot.sh           # Script de inicio
+└── README.md              # Documentación
 ```
 
-### Agregar Nuevos Comandos
-
-1. Agregar comando a `commands` object
-2. Crear handler con `bot.onText()`
-3. Implementar lógica del comando
+### **Agregar Nuevas Funcionalidades**
+1. Agregar comando en `bot.onText()`
+2. Implementar lógica en función correspondiente
+3. Agregar botones en `callback_query`
 4. Actualizar documentación
 
-### Integración con APIs
+## 🎉 ¡Listo para Usar!
 
-El bot se integra con:
-- **Soroswap API**: Para cotizaciones y swaps
-- **Stellar Horizon**: Para datos de la blockchain
-- **Frontend API**: Para funcionalidades adicionales
+Tu bot de trading está listo. Los usuarios pueden:
 
-## 📈 Próximas Características
+1. **Crear wallets** seguras en Telegram
+2. **Hacer swaps** XLM ↔ USDC automáticamente
+3. **Abrir posiciones** de trading con leverage
+4. **Gestionar** todo desde Telegram
 
-- [ ] Soporte para múltiples assets
-- [ ] Historial de transacciones
-- [ ] Alertas de precio
-- [ ] Trading automático con IA
-- [ ] Integración con wallets reales
-- [ ] Soporte para mainnet
-
-## 🤝 Contribuir
-
-1. Fork el proyecto
-2. Crea una rama para tu feature
-3. Commit tus cambios
-4. Push a la rama
-5. Abre un Pull Request
-
-## 📄 Licencia
-
-MIT License - Ver archivo LICENSE para detalles.
+**¡Disfruta del trading automatizado!** 🚀

@@ -21,7 +21,9 @@ export default function SwapsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
   const [swapStatus, setSwapStatus] = useState<string>('');
-  const [xlmPrice, setXlmPrice] = useState<number>(0);
+  const [xlmPrice, setXlmPrice] = useState<number>(0); // Se cargará desde CoinGecko
+  const [usdcPrice, setUsdcPrice] = useState<number>(1.0); // Se cargará desde CoinGecko
+  const [isUpdatingPrices, setIsUpdatingPrices] = useState<boolean>(false);
   const [transactionHash, setTransactionHash] = useState<string>('');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [swapResult, setSwapResult] = useState<any>(null);
@@ -29,19 +31,89 @@ export default function SwapsPage() {
   // Obtener precio de XLM
   const fetchXlmPrice = async () => {
     try {
-      const response = await fetch('/api/soroswap/price');
-      const data = await response.json();
-      if (data.success) {
-        setXlmPrice(data.data.price_usd);
+      console.log('📊 Obteniendo precio de XLM desde CoinGecko...');
+      
+      // Pequeño delay para evitar sobrecarga
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      const coingeckoResponse = await fetch('/api/coingecko/price?asset=stellar');
+      const coingeckoData = await coingeckoResponse.json();
+      console.log('📊 Respuesta CoinGecko:', coingeckoData);
+      
+      if (coingeckoData.success) {
+        console.log('✅ Precio XLM desde CoinGecko:', coingeckoData.data.price);
+        setXlmPrice(coingeckoData.data.price);
+      } else {
+        console.log('❌ CoinGecko falló, usando precio de fallback');
+        // Usar un precio más realista como fallback
+        setXlmPrice(0.38); // Precio más realista de fallback
       }
     } catch (error) {
-      console.error('Error obteniendo precio:', error);
+      console.error('❌ Error obteniendo precio XLM:', error);
+      setXlmPrice(0.38); // Precio más realista de fallback
+    } finally {
+      setIsUpdatingPrices(false);
+    }
+  };
+
+  // Obtener precio de USDC calculado desde la cotización de Soroswap
+  const fetchUsdcPrice = async () => {
+    try {
+      console.log('📊 Calculando precio de USDC desde cotización de Soroswap...');
+      
+      // No calcular si estamos ejecutando un swap
+      if (isExecuting) {
+        console.log('⏸️ Saltando cálculo de precio USDC - swap en progreso');
+        return;
+      }
+      
+      // Pequeño delay para evitar sobrecarga
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Obtener cotización de 1 XLM para calcular precio de USDC
+      const quoteResponse = await fetch('/api/soroswap/quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: 1 })
+      });
+      
+      const quoteData = await quoteResponse.json();
+      console.log('📊 Cotización para calcular USDC:', quoteData);
+      
+      if (quoteData.success && quoteData.data.quote) {
+        const xlmAmount = 1;
+        const usdcAmount = parseFloat(quoteData.data.quote.amountOut) / 10000000; // Convertir de stroops
+        const usdcPrice = xlmAmount / usdcAmount; // Precio de USDC en XLM
+        console.log('✅ Precio USDC calculado:', usdcPrice);
+        setUsdcPrice(usdcPrice);
+      } else {
+        console.log('⚠️ No se pudo calcular precio de USDC, usando CoinGecko...');
+        // Fallback a CoinGecko
+        const coingeckoResponse = await fetch('/api/coingecko/price?asset=usd-coin');
+        const coingeckoData = await coingeckoResponse.json();
+        if (coingeckoData.success) {
+          setUsdcPrice(coingeckoData.data.price);
+        } else {
+          setUsdcPrice(0.999); // Precio de fallback
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error obteniendo precio USDC:', error);
+      setUsdcPrice(0.999);
+    } finally {
+      setIsUpdatingPrices(false);
     }
   };
 
   // Obtener cotización de swap
   const getSwapQuote = async (amount: string) => {
     if (!amount || parseFloat(amount) <= 0) return;
+    
+    // No obtener cotización si estamos ejecutando un swap
+    if (isExecuting) {
+      console.log('⏸️ Saltando cotización - swap en progreso');
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -88,6 +160,9 @@ export default function SwapsPage() {
         quote: quote.quote,
         network: 'testnet'
       };
+      
+      console.log('📊 Datos de swap enviados:', swapData);
+      console.log('📊 Quote completo:', quote);
 
       setSwapStatus('Creando transacción de swap...');
       const response = await fetch('/api/soroswap/execute', {
@@ -98,8 +173,11 @@ export default function SwapsPage() {
 
       const data = await response.json();
       console.log('📊 Respuesta de execute API:', data);
+      console.log('📊 Status de respuesta:', response.status);
+      console.log('📊 Headers de respuesta:', response.headers);
       
       if (!data.success) {
+        console.error('❌ Error en execute API:', data);
         throw new Error(data.message || 'Error creando transacción');
       }
 
@@ -244,10 +322,27 @@ export default function SwapsPage() {
     return () => clearTimeout(timeoutId);
   }, [inputAmount]);
 
-  // Obtener precio al cargar
+  // Obtener precios al cargar y cada 30 segundos
   useEffect(() => {
-    fetchXlmPrice();
-  }, []);
+    const loadPrices = async () => {
+      // No actualizar precios si estamos ejecutando un swap
+      if (isExecuting) {
+        console.log('⏸️ Saltando actualización de precios - swap en progreso');
+        return;
+      }
+      
+      setIsUpdatingPrices(true);
+      await Promise.all([fetchXlmPrice(), fetchUsdcPrice()]);
+    };
+    
+    // Cargar inmediatamente
+    loadPrices();
+    
+    // Actualizar cada 30 segundos
+    const interval = setInterval(loadPrices, 30000);
+    
+    return () => clearInterval(interval);
+  }, [isExecuting]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-brazil-black via-slate-900 to-brazil-green">
@@ -314,7 +409,26 @@ export default function SwapsPage() {
           <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-3xl p-8 border border-gray-700/30 shadow-2xl">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-white mb-2">Interfaz de Swap</h2>
-              <p className="text-gray-300">Intercambia tus tokens con las mejores tasas</p>
+              <p className="text-gray-300 mb-4">Intercambia tus tokens con las mejores tasas</p>
+              <div className="flex flex-col items-center space-y-2">
+                <button
+                  onClick={() => {
+                    setIsUpdatingPrices(true);
+                    fetchXlmPrice();
+                    fetchUsdcPrice();
+                  }}
+                  disabled={isUpdatingPrices}
+                  className="bg-brazil-green hover:bg-green-600 disabled:bg-gray-500 text-white px-4 py-2 rounded-lg transition-colors duration-200 text-sm"
+                >
+                  {isUpdatingPrices ? '⏳ Actualizando...' : '🔄 Actualizar Precios'}
+                </button>
+                <p className="text-xs text-gray-400">
+                  XLM: CoinGecko | USDC: Soroswap (Stellar DEX)
+                </p>
+                <p className="text-xs text-blue-400">
+                  💡 Precios reales para mejor experiencia
+                </p>
+              </div>
             </div>
             
             <div className="relative">
@@ -339,7 +453,7 @@ export default function SwapsPage() {
                       <div className="text-brazil-green font-bold">
                         ${xlmPrice.toFixed(6)}
                       </div>
-                      <div className="text-gray-400 text-sm">USD</div>
+                      <div className="text-gray-400 text-sm">USD (CoinGecko)</div>
                     </div>
                   </div>
                   
@@ -401,9 +515,9 @@ export default function SwapsPage() {
                     </div>
                     <div className="text-right">
                       <div className="text-blue-400 font-bold">
-                        {isLoading ? '⏳ Calculando...' : '$1.00'}
+                        {isLoading ? '⏳ Calculando...' : `$${usdcPrice.toFixed(6)}`}
                       </div>
-                      <div className="text-gray-400 text-sm">USD</div>
+                      <div className="text-gray-400 text-sm">USD (Soroswap)</div>
                     </div>
                   </div>
                   
@@ -412,7 +526,7 @@ export default function SwapsPage() {
                   </div>
                   
                   <div className="text-gray-400 text-sm">
-                    ≈ ${(parseFloat(outputAmount || '0') * 1).toFixed(2)} USD
+                    ≈ ${(parseFloat(outputAmount || '0') * usdcPrice).toFixed(2)} USD
                   </div>
                 </div>
               </div>
