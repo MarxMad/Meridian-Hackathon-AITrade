@@ -1,19 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  Server, 
-  Keypair, 
-  TransactionBuilder, 
-  Operation, 
-  Networks,
-  Asset,
-  BASE_FEE
-} from '@stellar/stellar-sdk';
 
 const CONTRACT_ID = 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC';
-const NETWORK_PASSPHRASE = Networks.TESTNET;
 const HORIZON_URL = 'https://horizon-testnet.stellar.org';
-
-const server = new Server(HORIZON_URL);
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,11 +17,18 @@ export async function POST(request: NextRequest) {
 
     console.log(`💰 Procesando transferencia de ${amount} XLM al contrato...`);
 
-    // Enviar transacción firmada
-    const transaction = TransactionBuilder.fromXDR(signedTransaction, NETWORK_PASSPHRASE);
-    const result = await server.submitTransaction(transaction);
+    // Enviar transacción usando fetch
+    const response = await fetch(`${HORIZON_URL}/transactions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `tx=${encodeURIComponent(signedTransaction)}`
+    });
 
-    if (result.successful) {
+    const result = await response.json();
+
+    if (response.ok && result.successful) {
       console.log('✅ Transferencia exitosa:', result.hash);
       
       return NextResponse.json({
@@ -48,7 +43,7 @@ export async function POST(request: NextRequest) {
         }
       });
     } else {
-      throw new Error('Transaction failed');
+      throw new Error(result.extras?.result_codes || result.detail || 'Transaction failed');
     }
 
   } catch (error) {

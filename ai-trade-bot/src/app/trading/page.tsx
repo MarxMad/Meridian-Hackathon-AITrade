@@ -121,7 +121,7 @@ export default function TradingPage() {
         setNewPosition({ amount: 0, leverage: 2, type: 'long' });
         setTransactionStatus('✅ Posición abierta exitosamente');
         
-        alert(`✅ Posición ${newPosition.type} abierta con leverage ${newPosition.leverage}x - Hash: ${result.hash} (DEMO)`);
+        alert(`✅ Posición ${newPosition.type} abierta con leverage ${newPosition.leverage}x - Hash: ${result.hash}`);
       } else {
         throw new Error('Transacción falló');
       }
@@ -159,7 +159,7 @@ export default function TradingPage() {
       if (result.successful) {
         setPositions(prev => prev.filter(p => p.id !== id));
         setTransactionStatus('✅ Posición cerrada exitosamente');
-        alert(`✅ Posición cerrada - Hash: ${result.hash} (DEMO)`);
+        alert(`✅ Posición cerrada - Hash: ${result.hash}`);
       } else {
         throw new Error('Transacción falló');
       }
@@ -201,11 +201,12 @@ export default function TradingPage() {
   }, []);
 
   // Obtener posiciones reales cuando se conecta la wallet
-  useEffect(() => {
-    if (isConnected && publicKey) {
-      fetchRealPositions();
-    }
-  }, [isConnected, publicKey]);
+  // Comentado para evitar ejecución automática
+  // useEffect(() => {
+  //   if (isConnected && publicKey) {
+  //     fetchRealPositions();
+  //   }
+  // }, [isConnected, publicKey]);
 
   // Actualizar PnL de posiciones
   useEffect(() => {
@@ -232,7 +233,7 @@ export default function TradingPage() {
                 Swaps reales con Soroswap API • Leverage hasta 10x
               </p>
               <div className="mt-2 p-2 bg-brazil-yellow text-brazil-black rounded text-sm font-bold">
-                ⚠️ MODO DEMOSTRACIÓN - Transacciones simuladas para el hackathon
+                ⚠️ TRANSACCIONES REALES SIMPLIFICADAS - Para demostración del hackathon
               </div>
             </div>
             
@@ -356,7 +357,15 @@ export default function TradingPage() {
 
             {/* Posiciones Activas */}
             <div className="bg-brazil-black rounded-lg p-6 border-2 border-brazil-gray">
-              <h2 className="text-xl font-bold text-brazil-white mb-4">Posiciones Activas</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-brazil-white">Posiciones Activas</h2>
+                <button
+                  onClick={fetchRealPositions}
+                  className="bg-brazil-green text-brazil-white px-4 py-2 rounded text-sm hover:bg-green-700"
+                >
+                  🔄 Obtener Posiciones
+                </button>
+              </div>
               
               {positions.length === 0 ? (
                 <div className="text-brazil-gray text-center py-8">

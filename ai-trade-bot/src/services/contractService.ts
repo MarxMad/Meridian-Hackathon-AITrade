@@ -1,66 +1,111 @@
-// Servicio del lado del cliente para interactuar con el contrato
-// Todas las operaciones se envían a las API routes del servidor
+// Servicio del lado del cliente para interactuar con el contrato REAL
+// Usa Stellar SDK directamente en el cliente para crear transacciones reales
+
+import { createRealTransaction, submitRealTransaction } from '@/utils/stellarUtils';
 
 export interface ContractCall {
   method: string;
-  args: any[];
+  args: unknown[];
   sourceAccount: string;
 }
 
 export class ContractService {
-  // Crear transacción para invocar contrato
+  // Crear transacción REAL para invocar contrato
   async createContractInvokeTransaction(
     sourceAccount: string,
     method: string,
-    args: any[] = []
+    args: unknown[] = []
   ): Promise<string> {
     try {
-      const response = await fetch('/api/contract/operations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          operation: method,
-          sourceAccount,
-          ...this.formatArgs(args)
-        })
-      });
-
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.message || 'Error creando transacción');
-      }
-
-      return result.data.transactionXdr;
+      const params = this.formatArgs(args);
+      return await createRealTransaction(sourceAccount, method, params);
     } catch (error) {
-      console.error('Error creando transacción:', error);
+      console.error('Error creando transacción REAL:', error);
       throw error;
     }
   }
 
-  // Enviar transacción firmada
-  async submitTransaction(signedTransaction: string): Promise<any> {
+  // Enviar transacción REAL firmada
+  async submitTransaction(signedTransaction: string): Promise<{ successful: boolean; hash: string; ledger: number; network: string }> {
     try {
-      const response = await fetch('/api/contract/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signedTransaction })
-      });
-
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.message || 'Error enviando transacción');
-      }
-
-      return result.data;
+      return await submitRealTransaction(signedTransaction);
     } catch (error) {
-      console.error('Error enviando transacción:', error);
+      console.error('Error enviando transacción REAL:', error);
       throw error;
     }
   }
 
-  // Ejecutar consulta de solo lectura
+  // Formatear argumentos para la API
+  private formatArgs(args: unknown[]): Record<string, unknown> {
+    const formatted: Record<string, unknown> = {};
+    args.forEach((arg, index) => {
+      formatted[`arg${index}`] = arg;
+    });
+    return formatted;
+  }
+
+  // Abrir posición REAL
+  async openPosition(
+    publicKey: string,
+    amount: number,
+    leverage: number,
+    positionType: 'long' | 'short'
+  ): Promise<string> {
+    try {
+      return await createRealTransaction(publicKey, 'open_position', {
+        amount,
+        leverage,
+        positionType,
+      });
+    } catch (error) {
+      console.error('Error en openPosition:', error);
+      throw error;
+    }
+  }
+
+  // Cerrar posición REAL
+  async closePosition(
+    publicKey: string,
+    positionId: string
+  ): Promise<string> {
+    try {
+      return await createRealTransaction(publicKey, 'close_position', {
+        positionId,
+      });
+    } catch (error) {
+      console.error('Error en closePosition:', error);
+      throw error;
+    }
+  }
+
+  // Depositar fondos REAL
+  async depositFunds(
+    publicKey: string,
+    asset: string,
+    amount: number
+  ): Promise<string> {
+    try {
+      return await createRealTransaction(publicKey, 'deposit_funds', {
+        asset,
+        amount,
+      });
+    } catch (error) {
+      console.error('Error en depositFunds:', error);
+      throw error;
+    }
+  }
+
+  // Obtener posiciones del trader REAL
+  async getTraderPositions(publicKey: string): Promise<string> {
+    try {
+      return await createRealTransaction(publicKey, 'get_trader_positions', {});
+    } catch (error) {
+      console.error('Error en getTraderPositions:', error);
+      throw error;
+    }
+  }
+
+  // Ejecutar consulta REAL
   async executeQuery(query: string, sourceAccount?: string): Promise<string> {
     try {
       const response = await fetch('/api/contract/query', {
@@ -68,103 +113,34 @@ export class ContractService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query,
-          sourceAccount
+          sourceAccount: sourceAccount || 'default'
         })
       });
 
       const result = await response.json();
 
       if (!result.success) {
-        throw new Error(result.message || 'Error ejecutando consulta');
+        throw new Error(result.message || 'Error ejecutando consulta REAL');
       }
 
       return result.data.transactionXdr;
     } catch (error) {
-      console.error('Error ejecutando consulta:', error);
+      console.error('Error ejecutando consulta REAL:', error);
       throw error;
     }
   }
 
-  // Formatear argumentos para la API
-  private formatArgs(args: any[]): any {
-    const formatted: any = {};
-    
-    args.forEach((arg, index) => {
-      if (typeof arg === 'string') {
-        formatted[`arg${index}`] = arg;
-      } else if (typeof arg === 'number') {
-        formatted[`arg${index}`] = arg;
-      } else if (typeof arg === 'boolean') {
-        formatted[`arg${index}`] = arg;
-      } else if (arg && typeof arg === 'object' && arg.address) {
-        formatted[`arg${index}`] = arg.address;
-      } else {
-        formatted[`arg${index}`] = arg;
-      }
-    });
-
-    return formatted;
-  }
-
-  // Métodos específicos del contrato de trading
-
-  // Depositar fondos
-  async depositFunds(sourceAccount: string, amount: number): Promise<string> {
-    return this.createContractInvokeTransaction(
-      sourceAccount,
-      'deposit_funds',
-      [amount]
-    );
-  }
-
-  // Abrir posición
-  async openPosition(
-    sourceAccount: string, 
-    amount: number, 
-    leverage: number, 
-    positionType: 'long' | 'short'
-  ): Promise<string> {
-    return this.createContractInvokeTransaction(
-      sourceAccount,
-      'open_position',
-      [amount, leverage, positionType]
-    );
-  }
-
-  // Cerrar posición
-  async closePosition(sourceAccount: string, positionId: string): Promise<string> {
-    return this.createContractInvokeTransaction(
-      sourceAccount,
-      'close_position',
-      [positionId]
-    );
-  }
-
-  // Auto trading
-  async autoTrade(sourceAccount: string, amount: number): Promise<string> {
-    return this.createContractInvokeTransaction(
-      sourceAccount,
-      'auto_trade',
-      [amount]
-    );
-  }
-
-  // Obtener posiciones del trader
-  async getTraderPositions(sourceAccount: string): Promise<string> {
-    return this.executeQuery('get_my_positions', sourceAccount);
-  }
-
-  // Obtener precio actual
+  // Obtener precio actual REAL
   async getCurrentPrice(): Promise<string> {
     return this.executeQuery('get_current_price');
   }
 
-  // Obtener estadísticas globales
+  // Obtener estadísticas globales REAL
   async getGlobalStats(): Promise<string> {
     return this.executeQuery('get_global_stats');
   }
 
-  // Crear transacción de pago (para TransferModal)
+  // Crear transacción de pago REAL (para TransferModal)
   async createPaymentTransaction(
     sourceAccount: string,
     destination: string,
@@ -172,27 +148,13 @@ export class ContractService {
     asset: string = 'XLM'
   ): Promise<string> {
     try {
-      const response = await fetch('/api/contract/operations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          operation: 'payment',
-          sourceAccount,
-          destination,
-          amount,
-          asset
-        })
+      return await createRealTransaction(sourceAccount, 'payment', {
+        destination,
+        amount,
+        asset
       });
-
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.message || 'Error creando transacción de pago');
-      }
-
-      return result.data.transactionXdr;
     } catch (error) {
-      console.error('Error creando transacción de pago:', error);
+      console.error('Error creando transacción REAL de pago:', error);
       throw error;
     }
   }

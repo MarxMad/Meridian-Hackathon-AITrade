@@ -63,7 +63,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       if (address) {
         setPublicKey(address);
         setIsConnected(true);
-        setWalletName(kit.getWalletName() || 'Unknown');
+        setWalletName('Connected Wallet');
       }
     } catch (err) {
       // No hay wallet conectada, esto es normal
@@ -128,20 +128,25 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     console.log('🔌 Wallet desconectada');
   };
 
-  const signTransaction = async (transaction: string): Promise<string> => {
-    if (!kit || !isConnected) {
-      throw new Error('Wallet no conectada');
-    }
-    
+  const signTransaction = async (transactionXdr: string): Promise<string> => {
     try {
-      const { signedTxXdr } = await kit.signTransaction(transaction, {
+      if (!isConnected || !kit) {
+        throw new Error('Wallet no conectada o Kit no inicializado');
+      }
+
+      console.log('🔐 Firmando transacción REAL...', transactionXdr.substring(0, 50) + '...');
+
+      const { signedTxXdr } = await kit.signTransaction(transactionXdr, {
+        networkPassphrase: WalletNetwork.TESTNET,
         address: publicKey!,
-        networkPassphrase: WalletNetwork.TESTNET
       });
+
+      console.log('✅ Transacción REAL firmada exitosamente');
       return signedTxXdr;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error firmando transacción';
+      const errorMessage = err instanceof Error ? err.message : 'Error firmando transacción REAL';
       setError(errorMessage);
+      console.error('❌ Error firmando transacción REAL:', err);
       throw new Error(errorMessage);
     }
   };
