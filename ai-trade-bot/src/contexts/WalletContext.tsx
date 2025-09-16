@@ -2,10 +2,9 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
-  setAllowed, 
   isConnected, 
   getPublicKey, 
-  signTransaction,
+  signTransaction as freighterSignTransaction,
   requestAccess,
   getNetworkDetails,
   NetworkDetails
@@ -98,7 +97,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Wallet no conectada');
       }
       
-      const signedTransaction = await signTransaction(transaction);
+      const signedTransaction = await freighterSignTransaction(transaction);
       return signedTransaction;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error firmando transacción';

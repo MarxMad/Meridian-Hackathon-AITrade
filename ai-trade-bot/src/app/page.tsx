@@ -16,14 +16,14 @@ export default function Home() {
                 <span className="text-brazil-green">🤖</span> AI Trade Bot
               </h1>
               <p className="text-xl text-brazil-gray text-center mb-6">
-                Trading automatizado con swaps reales usando <span className="text-brazil-green font-semibold">Soroswap API</span>
+                <span className="text-brazil-green font-semibold">Composability Track</span> - Integración completa de protocolos Stellar
               </p>
               <div className="flex justify-center space-x-4 text-sm text-brazil-gray">
-                <span>🌐 Stellar Testnet</span>
+                <span>🧩 Multi-Protocol</span>
                 <span>•</span>
-                <span>🔄 Swaps Reales</span>
+                <span>🔄 Soroswap + Soroban</span>
                 <span>•</span>
-                <span>📊 Trading Apalancado</span>
+                <span>🔗 Wallet Integration</span>
               </div>
             </div>
             
@@ -108,6 +108,7 @@ export default function Home() {
             Hacer Swap
           </Link>
         </div>
+
       </main>
 
       {/* Estado del Sistema */}
