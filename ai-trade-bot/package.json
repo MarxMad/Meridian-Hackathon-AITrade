@@ -6,8 +6,13 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
+    "build:ignore-eslint": "ESLINT_NO_DEV_ERRORS=true next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
+    "export": "next build && next export",
+    "deploy:vercel": "vercel --prod",
+    "deploy:preview": "vercel"
   },
   "dependencies": {
     "@creit.tech/stellar-wallets-kit": "^1.9.5",
