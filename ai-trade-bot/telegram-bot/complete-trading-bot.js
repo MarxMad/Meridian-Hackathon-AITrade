@@ -735,20 +735,20 @@ Las wallets nuevas necesitan tiempo para propagarse en Stellar testnet antes de 
     // Obtener cotización
     const quote = await getSwapQuote(amount);
     
-    if (!quote || !quote.success) {
+    if (!quote || !quote.quote) {
       bot.sendMessage(chatId, '❌ Error obteniendo cotización. Intenta de nuevo.');
       return;
     }
     
-    const outputAmount = (parseInt(quote.data.quote.amountOut) / 1_000_000).toFixed(6);
+    const outputAmount = (parseInt(quote.quote.amountOut) / 10_000_000).toFixed(6);
     
     // Mostrar cotización y pedir confirmación
     const quoteMessage = `
 📊 **Cotización Obtenida**
 • **Entrada:** ${amount} XLM
 • **Salida:** ~${outputAmount} USDC
-• **Protocolo:** ${quote.data.quote.platform}
-• **Red:** ${quote.data.network}
+• **Protocolo:** ${quote.quote.platform}
+• **Red:** ${quote.network}
 
 **¿Confirmas el swap?**
     `;
@@ -1266,7 +1266,7 @@ La wallet necesita 60 segundos para propagarse en la red antes de poder hacer sw
       try {
         // 1. Obtener cotización real
         const quote = await getSwapQuote(amount);
-        if (!quote) {
+        if (!quote || !quote.quote) {
           throw new Error('No se pudo obtener cotización de Soroswap');
         }
         
@@ -1411,7 +1411,7 @@ La API de Soroswap está temporalmente saturada. Por favor intenta en unos minut
         });
         
         const quote = await getSwapQuote(amount);
-        if (!quote) {
+        if (!quote || !quote.quote) {
           throw new Error('No se pudo obtener cotización de Soroswap después de múltiples intentos');
         }
         
