@@ -7,12 +7,8 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Optimized for Vercel deployment
-  output: 'standalone',
   poweredByHeader: false,
   reactStrictMode: true,
-  swcMinify: true,
-  // Remove turbo config for Vercel compatibility
   images: {
     domains: ['localhost'],
     unoptimized: true
