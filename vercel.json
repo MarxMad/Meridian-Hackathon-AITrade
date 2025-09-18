@@ -1,10 +1,20 @@
 {
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
-  "outputDirectory": ".next",
-  "framework": "nextjs",
-  "rootDirectory": "ai-trade-bot",
+  "version": 2,
+  "builds": [
+    {
+      "src": "ai-trade-bot/package.json",
+      "use": "@vercel/next",
+      "config": {
+        "distDir": ".next"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "ai-trade-bot/$1"
+    }
+  ],
   "env": {
     "COINGECKO_API_KEY": "CG-SRKm83vPGJwuXMVkmbBQRAXU",
     "STELLAR_NETWORK": "testnet"
