@@ -3,6 +3,10 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { WalletProvider } from "@/contexts/WalletContext";
 
+// Forzar rendering dinámico para evitar static generation en toda la app
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],

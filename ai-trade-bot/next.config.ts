@@ -14,6 +14,15 @@ const nextConfig: NextConfig = {
   trailingSlash: false,
   poweredByHeader: false,
   generateEtags: false,
+  // Configuraciones adicionales para evitar static generation
+  experimental: {
+    dynamicIO: true,
+  },
+  // Deshabilitar optimizaciones que pueden causar problemas
+  swcMinify: false,
+  compiler: {
+    removeConsole: false,
+  },
   env: {
     COINGECKO_API_KEY: process.env.COINGECKO_API_KEY,
     STELLAR_NETWORK: process.env.STELLAR_NETWORK || 'testnet',
