@@ -189,7 +189,7 @@ async function getTradeQuote(amount, leverage = 2, tradeType = 'long', retries =
       console.log('📈 Respuesta de cotización de trading:', response.data);
       
       if (response.data.success) {
-        return response.data.data;
+        return response.data.data.result;
       } else {
         console.error(`❌ Error en cotización de trading (intento ${attempt}):`, response.data.message);
         
@@ -432,8 +432,8 @@ async function executeTrade(publicKey, secretKey, amount, leverage, tradeType, q
       }
       
       // 3. Obtener XDR de la transacción
-      const transactionXdr = executeResponse.data.data?.transactionXdr || 
-                             executeResponse.data.transactionXdr;
+      const transactionXdr = executeResponse.data.transactionXdr || 
+                             executeResponse.data.data?.transactionXdr;
       
       console.log('🔍 XDR encontrado (trade):', transactionXdr ? transactionXdr.substring(0, 50) + '...' : 'undefined');
       
@@ -527,6 +527,11 @@ async function closePosition(publicKey, positionId) {
 }
 
 // Comando /start
+// Función para escapar caracteres de Markdown
+function escapeMarkdown(text) {
+  return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
+}
+
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   const username = msg.from.username || msg.from.first_name;
@@ -597,7 +602,7 @@ Soy tu bot de trading completo en Stellar. Puedo ayudarte a:
     }
   };
   
-  bot.sendMessage(chatId, welcomeMessage, { parse_mode: 'Markdown', ...keyboard });
+  bot.sendMessage(chatId, welcomeMessage, { ...keyboard });
 });
 
 // Comando /wallet

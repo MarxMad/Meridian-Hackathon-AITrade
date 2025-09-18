@@ -2,10 +2,15 @@
   "name": "stellar-ai-trading-bot-telegram",
   "version": "1.0.0",
   "description": "Bot de Telegram para trading automático en Stellar usando Soroswap",
-  "main": "index.js",
+  "main": "complete-trading-bot.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js"
+    "start": "node complete-trading-bot.js",
+    "dev": "node complete-trading-bot.js",
+    "railway": "node railway-start.js",
+    "deploy": "chmod +x deploy-vps.sh && ./deploy-vps.sh"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": [
     "telegram",
@@ -22,7 +27,8 @@
     "node-telegram-bot-api": "^0.64.0",
     "axios": "^1.6.0",
     "dotenv": "^16.3.1",
-    "@stellar/stellar-sdk": "^11.0.0"
+    "@stellar/stellar-sdk": "^11.0.0",
+    "express": "^4.18.2"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

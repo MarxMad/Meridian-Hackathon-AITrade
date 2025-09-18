@@ -1,0 +1,11 @@
+# Ignore files that don't need to be deployed
+README.md
+*.md
+.git
+.gitignore
+soroban-meridian-hack
+ai-trade-bot/telegram-bot
+ai-trade-bot/node_modules
+ai-trade-bot/.next
+.env*
+!.env.example

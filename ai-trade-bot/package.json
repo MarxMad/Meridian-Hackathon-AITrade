@@ -4,9 +4,9 @@
   "private": true,
   "description": "AI Trade Bot - Composability Track for Meridian Hackathon 2025",
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
-    "build:ignore-eslint": "ESLINT_NO_DEV_ERRORS=true next build --turbopack",
+    "dev": "next dev",
+    "build": "next build",
+    "build:turbo": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
