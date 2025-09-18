@@ -1,4 +1,5 @@
-# 🤖 Meridian Hackathon - AI Trading Bot
+
+ bot# 🤖 Meridian Hackathon - AI Trading Bot
 
 > **Una plataforma de trading automatizado de perpetuos en Stellar con agente de IA integrado**
 

@@ -1,13 +1,15 @@
 {
-  "buildCommand": "cd ai-trade-bot && npm run build",
-  "devCommand": "cd ai-trade-bot && npm run dev",
-  "installCommand": "cd ai-trade-bot && npm install",
-  "outputDirectory": "ai-trade-bot/.next",
-  "framework": "nextjs",
-  "rewrites": [
+  "version": 2,
+  "builds": [
     {
-      "source": "/(.*)",
-      "destination": "/$1"
+      "src": "ai-trade-bot/package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/ai-trade-bot/$1"
     }
   ]
 }
