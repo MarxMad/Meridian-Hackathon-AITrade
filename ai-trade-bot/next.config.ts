@@ -8,15 +8,12 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
-  experimental: {
-    appDir: true,
-  },
-  // Deshabilitar static generation que está causando el error React #31
+  // Forzar SSR para todas las páginas, evitar static generation
+  output: 'standalone',
+  // Deshabilitar completamente la pre-generación estática
   trailingSlash: false,
-  // Skip error page static generation
-  generateBuildId: async () => {
-    return 'build-id-' + Date.now()
-  },
+  poweredByHeader: false,
+  generateEtags: false,
   env: {
     COINGECKO_API_KEY: process.env.COINGECKO_API_KEY,
     STELLAR_NETWORK: process.env.STELLAR_NETWORK || 'testnet',
