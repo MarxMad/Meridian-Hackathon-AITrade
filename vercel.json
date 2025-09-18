@@ -1,9 +1,10 @@
 {
-  "buildCommand": "cd ai-trade-bot && npm install && npm run build",
-  "devCommand": "cd ai-trade-bot && npm run dev",
-  "installCommand": "cd ai-trade-bot && npm install",
-  "outputDirectory": "ai-trade-bot/.next",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "outputDirectory": ".next",
   "framework": "nextjs",
+  "rootDirectory": "ai-trade-bot",
   "env": {
     "COINGECKO_API_KEY": "CG-SRKm83vPGJwuXMVkmbBQRAXU",
     "STELLAR_NETWORK": "testnet"
