@@ -1,26 +1,19 @@
-# Ignore everything except ai-trade-bot directory
-/*
-!/ai-trade-bot/
-!/ai-trade-bot/**
-
-# Keep important root files
-!README.md
-!.gitignore
-!vercel.json
-
-# Ignore these specific directories completely
+# Ignore large directories not needed for deployment
 soroban-meridian-hack/
 contracts/
 target/
 venv/
-node_modules/
 .git/
 
-# Ignore these files in ai-trade-bot when deploying
+# Ignore telegram bot (not needed for web deployment)
 ai-trade-bot/telegram-bot/
+
+# Ignore build artifacts and dependencies
 ai-trade-bot/node_modules/
 ai-trade-bot/.next/
 ai-trade-bot/.env.local
+
+# Ignore documentation files
 ai-trade-bot/DEPLOY.md
 ai-trade-bot/QUICK-DEPLOY.md
 ai-trade-bot/README-HACKATHON.md
