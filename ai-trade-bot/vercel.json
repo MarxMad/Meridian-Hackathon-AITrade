@@ -1,5 +1,8 @@
 {
   "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
   "env": {
     "COINGECKO_API_KEY": "CG-SRKm83vPGJwuXMVkmbBQRAXU",
     "STELLAR_NETWORK": "testnet",

@@ -1,114 +1,112 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #1e293b;
-  --card-background: #ffffff;
-  --border-color: #e2e8f0;
-  --accent-color: #3b82f6;
-  --success-color: #10b981;
-  --warning-color: #f59e0b;
-  --error-color: #ef4444;
+  /* Stellar Brand Colors */
+  --stellar-purple: #7D00FF;
+  --stellar-yellow: #FFD700;
+  --stellar-black: #000000;
+  --stellar-dark: #0A0A0A;
+  --stellar-gray: #1A1A1A;
+  --stellar-light-gray: #2A2A2A;
+  --stellar-white: #FFFFFF;
+  --stellar-text: #E5E5E5;
+  --stellar-text-secondary: #A0A0A0;
+  
+  /* Background */
+  --background: var(--stellar-black);
+  --foreground: var(--stellar-text);
+  
+  /* Accent colors */
+  --accent-primary: var(--stellar-purple);
+  --accent-secondary: var(--stellar-yellow);
+  --accent-success: #00D4AA;
+  --accent-error: #FF6B6B;
+  --accent-warning: var(--stellar-yellow);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-secondary: var(--accent-secondary);
+  --color-accent-success: var(--accent-success);
+  --color-accent-error: var(--accent-error);
+  --color-accent-warning: var(--accent-warning);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
-  min-height: 100vh;
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-/* Smooth transitions */
 * {
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  box-sizing: border-box;
 }
 
-/* Mobile-first responsive design */
-.mobile-container {
-  max-width: 100%;
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--stellar-black);
+  color: var(--stellar-text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* Reset para elementos específicos */
+h1, h2, h3, h4, h5, h6, p, ul, ol, li {
+  margin: 0;
+  padding: 0;
+}
+
+/* Mejorar el espaciado general */
+.container {
+  width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 0 1rem;
 }
 
-@media (min-width: 768px) {
-  .mobile-container {
-    max-width: 768px;
-    padding: 0 2rem;
+@media (min-width: 640px) {
+  .container {
+    padding: 0 1.5rem;
   }
 }
 
 @media (min-width: 1024px) {
-  .mobile-container {
-    max-width: 1024px;
+  .container {
+    padding: 0 2rem;
   }
 }
 
-/* Card styles */
-.app-card {
-  background: var(--card-background);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
 }
 
-.app-card:hover {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+::-webkit-scrollbar-track {
+  background: var(--stellar-gray);
 }
 
-/* Button styles */
-.btn-primary {
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  padding: 12px 24px;
-  font-weight: 600;
-  transition: all 0.2s ease;
+::-webkit-scrollbar-thumb {
+  background: var(--stellar-purple);
+  border-radius: 4px;
 }
 
-.btn-primary:hover {
-  background: #2563eb;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+::-webkit-scrollbar-thumb:hover {
+  background: #8B1AFF;
 }
 
-.btn-success {
-  background: var(--success-color);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  padding: 12px 24px;
-  font-weight: 600;
-  transition: all 0.2s ease;
+/* Selection */
+::selection {
+  background: var(--stellar-purple);
+  color: var(--stellar-white);
 }
 
-.btn-success:hover {
-  background: #059669;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+/* Focus styles */
+*:focus {
+  outline: 2px solid var(--stellar-purple);
+  outline-offset: 2px;
+}
+
+/* Smooth transitions */
+* {
+  transition: all 0.2s ease-in-out;
 }

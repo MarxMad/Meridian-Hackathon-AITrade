@@ -1,9 +1,35 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
+import { motion } from 'framer-motion';
 import { useWallet } from '@/contexts/WalletContext';
 import { contractService } from '@/services/contractService';
+import BottomNavigation from '@/components/MobileMenu';
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  Area,
+  AreaChart
+} from 'recharts';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Wallet, 
+  Zap, 
+  BarChart3,
+  RefreshCw,
+  CheckCircle,
+  AlertCircle,
+  Info,
+  ArrowUpRight,
+  ArrowDownRight,
+  Activity
+} from 'lucide-react';
 
 interface Position {
   id: string;
@@ -18,9 +44,16 @@ interface Position {
   type: 'long' | 'short';
 }
 
+interface PriceData {
+  time: string;
+  price: number;
+  volume: number;
+}
+
 export default function TradingPage() {
   const { isConnected, publicKey, walletName, signTransaction } = useWallet();
   const [xlmPrice, setXlmPrice] = useState<number>(0);
+  const [priceHistory, setPriceHistory] = useState<PriceData[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [newPosition, setNewPosition] = useState({
@@ -32,695 +65,508 @@ export default function TradingPage() {
   const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [tradeResult, setTradeResult] = useState<any>(null);
-  const [walletBalance, setWalletBalance] = useState<number>(1000); // Simulado
+  const [walletBalance, setWalletBalance] = useState<number>(1000);
+  const [isUpdatingPrice, setIsUpdatingPrice] = useState(false);
 
-  // Obtener precio de XLM desde Soroswap (precio real)
+  // Obtener precio de XLM desde Soroswap
   const fetchXlmPrice = async () => {
     try {
+      setIsUpdatingPrice(true);
       const response = await fetch('/api/soroswap/price?asset=XLM&amount=1');
       const data = await response.json();
+      
       if (data.success && data.data.soroswap.price > 0) {
-        setXlmPrice(data.data.soroswap.price);
+        const newPrice = data.data.soroswap.price;
+        setXlmPrice(newPrice);
         setLastUpdateTime(new Date().toLocaleTimeString());
-      } else {
-        // Fallback a CoinGecko
-        const coingeckoResponse = await fetch('/api/coingecko/price?asset=stellar');
-        const coingeckoData = await coingeckoResponse.json();
-        if (coingeckoData.success) {
-          setXlmPrice(coingeckoData.data.price);
-          setLastUpdateTime(new Date().toLocaleTimeString());
-        }
-      }
-    } catch (error) {
-      console.error('Error obteniendo precio:', error);
-    }
-  };
-
-  // Obtener cotización de swap
-  const getSwapQuote = async (amount: number) => {
-    try {
-      const response = await fetch('/api/soroswap/quote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount })
-      });
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error obteniendo cotización:', error);
-      return null;
-    }
-  };
-
-  // Abrir nueva posición - mantengo la funcionalidad completa
-  const openPosition = async () => {
-    if (newPosition.amount <= 0) {
-      return;
-    }
-    if (!isConnected || !publicKey) {
-      alert('Por favor conecta tu wallet primero');
-      return;
-    }
-    
-    setIsLoading(true);
-    setTransactionStatus('Preparando transacción...');
-    
-    try {
-      // 1. Obtener cotización de swap
-      const quote = await getSwapQuote(newPosition.amount);
-      if (!quote?.success) {
-        alert('Error obteniendo cotización');
-        return;
-      }
-
-      // 2. Crear transacción para abrir posición en el contrato
-      setTransactionStatus('Creando transacción de posición...');
-      
-      const transactionXdr = await contractService.openPosition(
-        publicKey,
-        newPosition.amount,
-        newPosition.leverage,
-        newPosition.type
-      );
-
-      // 3. Firmar transacción
-      setTransactionStatus('Firmando transacción...');
-      const signedTransaction = await signTransaction(transactionXdr);
-
-      // 4. Enviar transacción
-      setTransactionStatus('Enviando transacción...');
-      const result = await contractService.submitTransaction(signedTransaction);
-
-      if (result.successful) {
-        // 5. Calcular margen requerido
-        const margin = newPosition.amount / newPosition.leverage;
-        const liquidationPrice = newPosition.type === 'long' 
-          ? newPosition.amount * 0.9 / newPosition.leverage  // 10% de margen
-          : newPosition.amount * 1.1 / newPosition.leverage;
-
-        // 6. Crear nueva posición local
-        const position: Position = {
-          id: Date.now().toString(),
-          asset: 'XLM',
-          amount: newPosition.amount,
-          leverage: newPosition.leverage,
-          entryPrice: xlmPrice,
-          currentPrice: xlmPrice,
-          pnl: 0,
-          margin,
-          liquidationPrice,
-          type: newPosition.type
+        
+        // Agregar a historial de precios
+        const newDataPoint: PriceData = {
+          time: new Date().toLocaleTimeString(),
+          price: newPrice,
+          volume: Math.random() * 1000000 // Simulado
         };
-
-        setPositions(prev => [...prev, position]);
         
-        // Mostrar pantalla de confirmación
-        setTradeResult({
-          hash: result.hash,
-          ledger: result.ledger || 'N/A',
-          action: 'open',
-          amount: newPosition.amount,
-          leverage: newPosition.leverage,
-          type: newPosition.type,
-          entryPrice: xlmPrice,
-          margin: margin,
-          liquidationPrice: liquidationPrice,
-          network: 'testnet'
+        setPriceHistory(prev => {
+          const updated = [...prev, newDataPoint];
+          // Mantener solo los últimos 50 puntos
+          return updated.slice(-50);
         });
-        setShowConfirmation(true);
-        setTransactionStatus(''); // Limpiar el estado de transacción
       } else {
-        throw new Error('Transacción falló');
+        // Fallback a precio simulado
+        const fallbackPrice = 0.12 + (Math.random() - 0.5) * 0.02;
+        setXlmPrice(fallbackPrice);
+          setLastUpdateTime(new Date().toLocaleTimeString());
+        
+        const newDataPoint: PriceData = {
+          time: new Date().toLocaleTimeString(),
+          price: fallbackPrice,
+          volume: Math.random() * 1000000
+        };
+        
+        setPriceHistory(prev => {
+          const updated = [...prev, newDataPoint];
+          return updated.slice(-50);
+        });
       }
     } catch (error) {
-      console.error('Error abriendo posición:', error);
-      setTransactionStatus('❌ Error abriendo posición');
-      alert(`Error abriendo posición: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+      console.error('Error obteniendo precio XLM:', error);
+      // Fallback a precio simulado
+      const fallbackPrice = 0.12 + (Math.random() - 0.5) * 0.02;
+      setXlmPrice(fallbackPrice);
     } finally {
-      setIsLoading(false);
+      setIsUpdatingPrice(false);
     }
   };
 
-  // Cerrar posición - mantengo la funcionalidad completa
-  const closePosition = async (id: string) => {
-    if (!isConnected || !publicKey) {
-      alert('Por favor conecta tu wallet primero');
-      return;
-    }
-
-    // Encontrar la posición a cerrar
-    const position = positions.find(p => p.id === id);
-    if (!position) {
-      alert('Posición no encontrada');
-      return;
-    }
-
-    setIsLoading(true);
-    setTransactionStatus('Calculando PnL...');
-    
-    try {
-      // 1. Calcular PnL real basado en el precio actual
-      const currentPrice = xlmPrice;
-      const entryPrice = position.entryPrice;
-      const amount = position.amount;
-      const leverage = position.leverage;
-      
-      let pnl;
-      if (position.type === 'long') {
-        // Para LONG: PnL = (precio_actual - precio_entrada) * cantidad * leverage
-        pnl = (currentPrice - entryPrice) * amount * leverage;
-      } else {
-        // Para SHORT: PnL = (precio_entrada - precio_actual) * cantidad * leverage
-        pnl = (entryPrice - currentPrice) * amount * leverage;
-      }
-      
-      const margin = amount / leverage;
-      const totalReturn = margin + pnl; // Margen inicial + PnL
-      const roi = (pnl / margin) * 100; // Return on Investment
-      
-      // Debug logging
-      console.log('🔍 Cálculo de PnL:');
-      console.log('  - Entry Price:', entryPrice);
-      console.log('  - Current Price:', currentPrice);
-      console.log('  - Amount:', amount);
-      console.log('  - Leverage:', leverage);
-      console.log('  - PnL:', pnl);
-      console.log('  - Margin:', margin);
-      console.log('  - Total Return:', totalReturn);
-      console.log('  - ROI:', roi + '%');
-      
-      // Devolver el monto completo de la posición (no solo el margen)
-      // En un sistema real, esto sería: margen + PnL, pero para demo devolvemos el monto completo
-      const actualReturn = amount; // Monto completo de la posición (222 XLM)
-      console.log('🔍 Monto a devolver (posición completa):', actualReturn);
-      console.log('🔍 Margen calculado:', margin);
-      console.log('🔍 PnL calculado:', pnl);
-      console.log('🔍 Total Return (margen + PnL):', totalReturn);
-      
-      setTransactionStatus('Creando transacción de cierre...');
-      
-      // 2. Crear transacción para cerrar posición en el contrato
-      const transactionXdr = await contractService.closePosition(publicKey, id);
-
-      // 3. Firmar transacción
-      setTransactionStatus('Firmando transacción...');
-      const signedTransaction = await signTransaction(transactionXdr);
-
-      // 4. Enviar transacción del contrato
-      setTransactionStatus('Enviando transacción de cierre...');
-      const result = await contractService.submitTransaction(signedTransaction);
-
-      if (result.successful) {
-        setTransactionStatus('Creando transacción de transferencia de fondos...');
-        
-        // 5. Transferir fondos directamente desde wallet Meridian (método simplificado)
-        setTransactionStatus('Transfiriendo fondos desde wallet Meridian...');
-        const transferResponse = await fetch('/api/transfer-funds', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            toAccount: publicKey,
-            amount: amount.toFixed(7), // Monto original de la posición
-            memo: `PnL: ${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}`
-          })
-        });
-
-        const transferData = await transferResponse.json();
-        console.log('🔍 Transfer response:', transferData);
-        if (!transferData.success) {
-          console.warn('⚠️ Error transfiriendo fondos:', transferData.message);
-          // Continúa aunque falle la transferencia
-        } else {
-          console.log('✅ Transferencia exitosa:', transferData.data?.hash);
-        }
-
-        // 6. Mostrar pantalla de confirmación con PnL y fondos devueltos
-        setTradeResult({
-          hash: result.hash,
-          transferHash: transferData.data?.hash, // Hash de la transferencia de fondos
-          ledger: result.ledger || 'N/A',
-          action: 'close',
-          position: {
-            type: position.type,
-            leverage: position.leverage,
-            amount: position.amount,
-            entryPrice: position.entryPrice,
-            currentPrice: currentPrice
-          },
-          pnl: pnl,
-          margin: margin,
-          totalReturn: totalReturn,
-          roi: roi,
-          fundsReturned: actualReturn, // Monto real devuelto por el contrato
-          transferSuccessful: transferData.success,
-          network: 'testnet'
-        });
-        setShowConfirmation(true);
-        setTransactionStatus(''); // Limpiar el estado de transacción
-        
-        // 7. Remover posición de la lista
-        setPositions(prev => prev.filter(p => p.id !== id));
-        
-        // 8. Actualizar balance de la wallet (simulado)
-        setWalletBalance(prev => prev + actualReturn);
-        
-        // 9. Mostrar notificación de fondos devueltos
-        setTimeout(() => {
-          alert(`💰 Fondos devueltos: $${actualReturn.toFixed(2)}\n\nEl contrato ha transferido los fondos de vuelta a tu wallet.`);
-        }, 1000);
-      } else {
-        throw new Error('Transacción falló');
-      }
-    } catch (error) {
-      console.error('Error cerrando posición:', error);
-      setTransactionStatus('❌ Error cerrando posición');
-      alert(`Error cerrando posición: ${error instanceof Error ? error.message : 'Error desconocido'}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Obtener posiciones reales del contrato
-  const fetchRealPositions = async () => {
-    if (!isConnected || !publicKey) return;
-    
-    try {
-      setTransactionStatus('Obteniendo posiciones del contrato...');
-      const transactionXdr = await contractService.getTraderPositions(publicKey);
-      
-      // Firmar y enviar consulta
-      const signedTransaction = await signTransaction(transactionXdr);
-      const result = await contractService.submitTransaction(signedTransaction);
-      
-      if (result.successful) {
-        console.log('✅ Posiciones obtenidas del contrato:', result);
-        // Aquí procesarías los datos reales del contrato
-      }
-    } catch (error) {
-      console.error('Error obteniendo posiciones:', error);
-    }
-  };
-
-  // Actualizar precios
+  // Cargar precio inicial y configurar actualización automática
   useEffect(() => {
     fetchXlmPrice();
-    const interval = setInterval(fetchXlmPrice, 30000); // Cada 30 segundos
+    
+    // Actualizar precio cada 5 segundos
+    const interval = setInterval(fetchXlmPrice, 5000);
+    
     return () => clearInterval(interval);
   }, []);
 
-  // Actualizar PnL de posiciones
+  // Obtener posiciones del usuario
+  const fetchPositions = async () => {
+    if (!isConnected || !publicKey) return;
+    
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/contract/query', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          function: 'get_my_positions',
+          args: [publicKey]
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setPositions(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error obteniendo posiciones:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Cargar posiciones cuando se conecta la wallet
   useEffect(() => {
-    setPositions(prev => prev.map(pos => ({
-      ...pos,
-      currentPrice: xlmPrice,
-      pnl: pos.type === 'long' 
-        ? (xlmPrice - pos.entryPrice) * pos.amount * pos.leverage
-        : (pos.entryPrice - xlmPrice) * pos.amount * pos.leverage
-    })));
-  }, [xlmPrice]);
+    if (isConnected && publicKey) {
+      fetchPositions();
+    }
+  }, [isConnected, publicKey]);
+
+  // Abrir nueva posición
+  const openPosition = async () => {
+    if (!isConnected || !publicKey || newPosition.amount <= 0) return;
+
+    setTransactionStatus('Abriendo posición...');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/contract/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          function: 'open_position',
+          args: [
+            'XLM',
+            newPosition.amount,
+            newPosition.type,
+            'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC' // Token asset
+          ]
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setTransactionStatus('¡Posición abierta exitosamente!');
+        setTradeResult(data);
+        setShowConfirmation(true);
+        
+        // Actualizar posiciones
+        fetchPositions();
+        
+        // Resetear formulario
+        setNewPosition({
+          amount: 0,
+          leverage: 2,
+          type: 'long'
+        });
+      } else {
+        setTransactionStatus(`Error: ${data.message}`);
+      }
+    } catch (error) {
+      console.error('Error abriendo posición:', error);
+      setTransactionStatus(`Error: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Cerrar posición
+  const closePosition = async (positionId: string) => {
+    setTransactionStatus('Cerrando posición...');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/contract/execute', {
+          method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+          body: JSON.stringify({
+          function: 'close_position',
+          args: [positionId]
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setTransactionStatus('¡Posición cerrada exitosamente!');
+        setTradeResult(data);
+        setShowConfirmation(true);
+        
+        // Actualizar posiciones
+        fetchPositions();
+      } else {
+        setTransactionStatus(`Error: ${data.message}`);
+      }
+    } catch (error) {
+      console.error('Error cerrando posición:', error);
+      setTransactionStatus(`Error: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const calculatePnL = (position: Position) => {
+    const priceChange = position.currentPrice - position.entryPrice;
+    const pnl = position.type === 'long' 
+      ? priceChange * position.amount * position.leverage
+      : -priceChange * position.amount * position.leverage;
+    return pnl;
+  };
+
+  const getPnLColor = (pnl: number) => {
+    return pnl > 0 ? 'text-green-400' : pnl < 0 ? 'text-red-400' : 'text-gray-400';
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 pt-4">
-      <div className="mobile-container">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="app-card p-6">
-            <div className="text-center">
-              <div className="w-16 h-16 relative mx-auto mb-4">
-                <Image
-                  src="/LOGOZZ.png"
-                  alt="ZENTRADE Logo"
-                  fill
-                  className="object-contain"
-                />
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                Trading con Apalancamiento
-              </h1>
-              <p className="text-gray-600 mb-4">
-                Swaps reales con Soroswap API • Leverage hasta 10x • Smart Contracts
-              </p>
-              
-              <div className="inline-flex items-center bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-2 rounded-full text-sm font-semibold">
-                <span className="mr-2">⚠️</span>
-                Demo del Hackathon - Transacciones Reales Simplificadas
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Wallet Status */}
-        {isConnected ? (
-          <div className="app-card p-4 mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                  <span className="text-green-600 text-sm">✓</span>
+    <div className="min-h-screen bg-black text-white pb-20">
+      {/* Header */}
+      <div className="border-b border-gray-800">
+        <div className="max-w-7xl mx-auto px-4 py-4 sm:py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r from-purple-500 to-yellow-500 rounded-lg flex items-center justify-center">
+                <Zap className="w-3 h-3 sm:w-5 sm:h-5 text-black" />
+      </div>
+              <h1 className="text-xl sm:text-2xl font-bold">Trading</h1>
+                    </div>
+            <div className="flex items-center space-x-2 sm:space-x-4">
+                  {isConnected ? (
+                <div className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm text-gray-400">
+                  <Wallet className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">{publicKey?.slice(0, 8)}...{publicKey?.slice(-8)}</span>
+                  <span className="sm:hidden">{publicKey?.slice(0, 4)}...{publicKey?.slice(-4)}</span>
+                    </div>
+                  ) : (
+                <div className="text-xs sm:text-sm text-gray-400">Connect wallet</div>
+              )}
+                      </div>
+                    </div>
                 </div>
+              </div>
+              
+      <div className="max-w-7xl mx-auto px-4 py-4 sm:py-8">
+        <div className="grid lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
+          {/* Price Chart */}
+          <div className="lg:col-span-2">
+            <motion.div
+              className="bg-gray-900 rounded-2xl p-4 sm:p-6 border border-gray-800"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
                 <div>
-                  <div className="font-semibold text-gray-900">{walletName}</div>
-                  <div className="text-sm text-gray-500 font-mono">
-                    {publicKey?.slice(0, 12)}...{publicKey?.slice(-12)}
+                  <h2 className="text-lg sm:text-xl font-semibold">XLM Price</h2>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-2xl sm:text-3xl font-bold">${xlmPrice.toFixed(4)}</span>
+                    <span className="text-green-400 text-xs sm:text-sm">+2.34%</span>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={fetchXlmPrice}
+                    disabled={isUpdatingPrice}
+                    className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 ${isUpdatingPrice ? 'animate-spin' : ''}`} />
+                  </button>
+                  <div className="text-xs sm:text-sm text-gray-400">
+                    {lastUpdateTime}
                   </div>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-sm text-gray-600">Balance Simulado</div>
-                <div className="font-semibold text-gray-900">${walletBalance.toFixed(2)} XLM</div>
+              
+              {/* Chart */}
+              <div className="h-64 sm:h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={priceHistory}>
+                    <defs>
+                      <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#7D00FF" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#7D00FF" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis 
+                      dataKey="time" 
+                      stroke="#9CA3AF"
+                      fontSize={12}
+                      tickFormatter={(value) => value.split(':').slice(0, 2).join(':')}
+                    />
+                    <YAxis 
+                      stroke="#9CA3AF"
+                      fontSize={12}
+                      domain={['dataMin - 0.001', 'dataMax + 0.001']}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: '#1F2937',
+                        border: '1px solid #374151',
+                        borderRadius: '8px',
+                        color: '#E5E7EB'
+                      }}
+                      formatter={(value: any) => [`$${value.toFixed(4)}`, 'Price']}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="price"
+                      stroke="#7D00FF"
+                      strokeWidth={2}
+                      fill="url(#priceGradient)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
-            </div>
-          </div>
-        ) : (
-          <div className="app-card p-6 mb-6 text-center bg-red-50 border-red-200">
-            <div className="text-red-600 font-semibold mb-2">❌ Wallet Desconectada</div>
-            <div className="text-red-500 text-sm">Conecta tu wallet para empezar a hacer trading</div>
-          </div>
-        )}
-
-        {/* Transaction Status */}
-        {transactionStatus && (
-          <div className="app-card p-4 mb-6">
-            <div className="flex items-center space-x-3 text-blue-600">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-              <span className="font-medium">{transactionStatus}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Current Price */}
-        <div className="app-card p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
-              <span className="text-2xl">📊</span>
-              <span>Precio XLM/USD</span>
-            </h2>
-            <div className="flex items-center text-green-600">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-              <span className="text-sm font-medium">En Vivo</span>
-            </div>
-          </div>
-          
-          <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-gray-900 mb-2">
-              ${xlmPrice.toFixed(6)}
-            </div>
-            <div className="text-sm text-gray-600">
-              🕒 Última actualización: {lastUpdateTime || 'Cargando...'}
-            </div>
-          </div>
-        </div>
-
-        {/* New Position Form */}
-        <div className="app-card p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-            <span className="text-2xl">🚀</span>
-            <span>Abrir Nueva Posición</span>
-          </h2>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-gray-700 font-medium mb-2">
-                Cantidad XLM
-              </label>
-              <input
-                type="number"
-                value={newPosition.amount}
-                onChange={(e) => setNewPosition(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
-                className="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="100.0"
-                step="0.1"
-                min="0.1"
-              />
+            </motion.div>
             </div>
 
-            <div>
-              <label className="block text-gray-700 font-medium mb-2">
-                Leverage
-              </label>
-              <select
-                value={newPosition.leverage}
-                onChange={(e) => setNewPosition(prev => ({ ...prev, leverage: parseInt(e.target.value) }))}
-                className="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value={2}>2x Leverage</option>
-                <option value={5}>5x Leverage</option>
-                <option value={10}>10x Leverage</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-gray-700 font-medium mb-2">
-                Dirección
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => {
-                    setNewPosition(prev => ({ ...prev, type: 'long' as 'long' | 'short' }));
-                  }}
-                  className={`p-3 rounded-lg font-medium transition-all ${
-                    newPosition.type === 'long' 
-                      ? 'bg-green-500 text-white shadow-lg' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  📈 Long
-                  {newPosition.type === 'long' && <span className="ml-2">✅</span>}
-                </button>
-                <button
-                  onClick={() => {
-                    setNewPosition(prev => ({ ...prev, type: 'short' as 'long' | 'short' }));
-                  }}
-                  className={`p-3 rounded-lg font-medium transition-all ${
-                    newPosition.type === 'short' 
-                      ? 'bg-red-500 text-white shadow-lg' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  📉 Short
-                  {newPosition.type === 'short' && <span className="ml-2">✅</span>}
-                </button>
-              </div>
-            </div>
-
-            <button
-              onClick={openPosition}
-              disabled={isLoading || newPosition.amount <= 0 || !isConnected}
-              className="w-full btn-success disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+          {/* Trading Panel */}
+          <div className="space-y-6">
+            {/* New Position Form */}
+            <motion.div
+              className="bg-gray-900 rounded-2xl p-4 sm:p-6 border border-gray-800"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
             >
-              {isLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  <span>Procesando...</span>
-                </>
-              ) : (
-                <>
-                  <span>🚀</span>
-                  <span>Abrir Posición</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
+              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Open Position</h3>
+              
+              <div className="space-y-3 sm:space-y-4">
+                {/* Amount */}
+                <div>
+                  <label className="block text-xs sm:text-sm text-gray-400 mb-2">Amount (XLM)</label>
+                  <input
+                    type="number"
+                    value={newPosition.amount}
+                    onChange={(e) => setNewPosition(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 sm:px-4 py-2 sm:py-3 text-white focus:border-purple-500 focus:outline-none text-sm sm:text-base"
+                    placeholder="0.0"
+                  />
+                </div>
 
-        {/* Active Positions */}
-        <div className="app-card p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Posiciones Activas</h2>
-            <button
-              onClick={fetchRealPositions}
-              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-            >
-              🔄 Actualizar
-            </button>
-          </div>
-          
-          {positions.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No hay posiciones activas
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {positions.map((position) => (
-                <div key={position.id} className="bg-gray-50 rounded-lg p-4 border">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <div className="font-semibold text-gray-900 flex items-center space-x-2">
-                        <span>{position.type === 'long' ? '📈' : '📉'}</span>
-                        <span>{position.asset} {position.leverage}x</span>
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {position.amount} XLM • Entrada: ${position.entryPrice.toFixed(6)}
-                      </div>
-                    </div>
+                {/* Leverage */}
+                <div>
+                  <label className="block text-xs sm:text-sm text-gray-400 mb-2">Leverage</label>
+                  <select
+                    value={newPosition.leverage}
+                    onChange={(e) => setNewPosition(prev => ({ ...prev, leverage: parseInt(e.target.value) }))}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 sm:px-4 py-2 sm:py-3 text-white focus:border-purple-500 focus:outline-none text-sm sm:text-base"
+                  >
+                    {[1, 2, 3, 5, 10].map(leverage => (
+                      <option key={leverage} value={leverage}>{leverage}x</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Position Type */}
+                <div>
+                  <label className="block text-xs sm:text-sm text-gray-400 mb-2">Position Type</label>
+                  <div className="grid grid-cols-2 gap-2">
                     <button
-                      onClick={() => closePosition(position.id)}
-                      className="bg-red-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-red-600 transition-colors"
+                      onClick={() => setNewPosition(prev => ({ ...prev, type: 'long' }))}
+                      className={`py-2 sm:py-3 px-3 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
+                        newPosition.type === 'long' 
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/50'
+                          : 'bg-gray-800 text-gray-400 border border-gray-700'
+                      }`}
                     >
-                      Cerrar
+                      <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
+                        Long
+                    </button>
+                    <button
+                      onClick={() => setNewPosition(prev => ({ ...prev, type: 'short' }))}
+                      className={`py-2 sm:py-3 px-3 sm:px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
+                        newPosition.type === 'short' 
+                          ? 'bg-red-500/20 text-red-400 border border-red-500/50'
+                          : 'bg-gray-800 text-gray-400 border border-gray-700'
+                      }`}
+                    >
+                      <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
+                        Short
                     </button>
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <div className="text-gray-600">Precio Actual</div>
-                      <div className="font-semibold text-gray-900">${position.currentPrice.toFixed(6)}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600">PnL</div>
-                      <div className={`font-semibold ${position.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {position.pnl >= 0 ? '+' : ''}${position.pnl.toFixed(2)}
+                </div>
+
+                {/* Position Info */}
+                {newPosition.amount > 0 && (
+                  <motion.div
+                    className="p-4 bg-gray-800/50 rounded-lg border border-gray-700"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Entry Price:</span>
+                        <span className="text-white">${xlmPrice.toFixed(4)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Leverage:</span>
+                        <span className="text-white">{newPosition.leverage}x</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Margin Required:</span>
+                        <span className="text-white">{(newPosition.amount * xlmPrice).toFixed(2)} USDC</span>
                       </div>
                     </div>
-                    <div>
-                      <div className="text-gray-600">Margen</div>
-                      <div className="font-semibold text-gray-900">${position.margin.toFixed(2)}</div>
+                  </motion.div>
+                )}
+
+                {/* Open Position Button */}
+                <button
+                  onClick={openPosition}
+                  disabled={!isConnected || newPosition.amount <= 0 || isLoading}
+                  className={`w-full py-3 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isConnected && newPosition.amount > 0 && !isLoading
+                      ? 'bg-yellow-500 hover:bg-yellow-600 text-black'
+                      : 'bg-gray-600 text-gray-400'
+                  }`}
+                >
+                  {isLoading ? (
+                    <div className="flex items-center justify-center space-x-2">
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Opening...</span>
                     </div>
-                    <div>
-                      <div className="text-gray-600">Liquidación</div>
-                      <div className="font-semibold text-red-600">${position.liquidationPrice.toFixed(6)}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* System Status */}
-        <div className="app-card p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Estado del Sistema</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Soroswap API</span>
-              <span className="flex items-center text-green-600">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                Activo
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Stellar Testnet</span>
-              <span className="flex items-center text-green-600">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                Conectado
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Contrato Soroban</span>
-              <span className="flex items-center text-green-600">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                Desplegado
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Statistics */}
-        {positions.length > 0 && (
-          <div className="app-card p-6 mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Estadísticas</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-gray-900">{positions.length}</div>
-                <div className="text-sm text-gray-600">Posiciones Activas</div>
-              </div>
-              <div className="text-center p-4 bg-green-50 rounded-lg">
-                <div className={`text-2xl font-bold ${positions.reduce((sum, p) => sum + p.pnl, 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  ${positions.reduce((sum, p) => sum + p.pnl, 0).toFixed(2)}
-                </div>
-                <div className="text-sm text-gray-600">PnL Total</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Confirmation Modal */}
-        {showConfirmation && tradeResult && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="text-center mb-6">
-                  <div className="text-5xl mb-4">
-                    {tradeResult.action === 'close' ? '💰' : '🚀'}
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    {tradeResult.action === 'close' 
-                      ? '¡Posición Cerrada - Fondos Devueltos!' 
-                      : '¡Posición Abierta Exitosamente!'
-                    }
-                  </h2>
-                  {tradeResult.action === 'close' && (
-                    <p className="text-gray-600 mt-2">
-                      El contrato ha transferido ${tradeResult.fundsReturned?.toFixed(2) || tradeResult.totalReturn?.toFixed(2)} de vuelta a tu wallet
-                    </p>
+                  ) : (
+                    'Open Position'
                   )}
-                </div>
-                
-                <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium text-gray-700">Tipo:</span>
-                      <div className={`font-semibold ${tradeResult.position?.type === 'long' ? 'text-green-600' : 'text-red-600'}`}>
-                        {tradeResult.position?.type?.toUpperCase() || tradeResult.type?.toUpperCase()} {tradeResult.position?.leverage || tradeResult.leverage}x
-                      </div>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">Cantidad:</span>
-                      <div className="font-semibold text-gray-900">{tradeResult.position?.amount || tradeResult.amount} XLM</div>
-                    </div>
-                    {tradeResult.action === 'close' && tradeResult.pnl !== undefined && (
-                      <>
-                        <div>
-                          <span className="font-medium text-gray-700">PnL:</span>
-                          <div className={`font-semibold ${tradeResult.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            ${tradeResult.pnl.toFixed(2)}
-                          </div>
-                        </div>
-                        <div>
-                          <span className="font-medium text-gray-700">ROI:</span>
-                          <div className={`font-semibold ${tradeResult.roi >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {tradeResult.roi.toFixed(2)}%
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    <div className="col-span-2">
-                      <span className="font-medium text-gray-700">Hash de Transacción:</span>
-                      <div className="font-mono text-xs text-gray-600 break-all">
-                        {tradeResult.hash}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <a
-                    href={`https://stellar.expert/explorer/testnet/tx/${tradeResult.hash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full btn-primary text-center"
-                  >
-                    🔍 Ver en Explorador
-                  </a>
-                  
-                  <button
-                    onClick={() => {
-                      setShowConfirmation(false);
-                      setTradeResult(null);
-                      setTransactionStatus('');
-                      if (tradeResult.action === 'open') {
-                        setNewPosition({ amount: 0, leverage: 2, type: 'long' });
-                      }
-                    }}
-                    className="w-full bg-gray-500 text-white py-3 rounded-lg font-medium hover:bg-gray-600 transition-colors"
-                  >
-                    {tradeResult.action === 'close' ? '✨ Ver Posiciones' : '✨ Abrir Otra Posición'}
-                  </button>
-                </div>
+                </button>
               </div>
-            </div>
+            </motion.div>
+
+            {/* Active Positions */}
+            <motion.div
+              className="bg-gray-900 rounded-2xl p-4 sm:p-6 border border-gray-800"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+            >
+              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Active Positions</h3>
+              
+              {positions.length === 0 ? (
+                <div className="text-center py-6 sm:py-8 text-gray-400">
+                  <BarChart3 className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
+                  <p className="text-sm sm:text-base">No active positions</p>
+                </div>
+              ) : (
+                <div className="space-y-2 sm:space-y-3">
+                  {positions.map((position) => (
+                    <div key={position.id} className="p-3 sm:p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-1 sm:space-x-2">
+                          {position.type === 'long' ? (
+                            <ArrowUpRight className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
+                          ) : (
+                            <ArrowDownRight className="w-3 h-3 sm:w-4 sm:h-4 text-red-400" />
+                          )}
+                          <span className="font-medium text-sm sm:text-base">{position.type.toUpperCase()}</span>
+                          <span className="text-gray-400 text-xs sm:text-sm">{position.asset}</span>
+                        </div>
+                        <span className={`font-semibold text-sm sm:text-base ${getPnLColor(calculatePnL(position))}`}>
+                          {calculatePnL(position) > 0 ? '+' : ''}${calculatePnL(position).toFixed(2)}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-1 sm:gap-2 text-xs sm:text-sm text-gray-400 mb-2 sm:mb-3">
+                        <div>
+                          <span>Entry: ${position.entryPrice.toFixed(4)}</span>
+                        </div>
+                        <div>
+                          <span>Current: ${position.currentPrice.toFixed(4)}</span>
+                        </div>
+                        <div>
+                          <span>Leverage: {position.leverage}x</span>
+                        </div>
+                        <div>
+                          <span>Amount: {position.amount}</span>
+                        </div>
+                      </div>
+                      
+                      <button
+                        onClick={() => closePosition(position.id)}
+                        disabled={isLoading}
+                        className="w-full py-2 bg-red-500/20 text-red-400 border border-red-500/50 rounded-lg hover:bg-red-500/30 transition-colors disabled:opacity-50 text-sm sm:text-base"
+                      >
+                        Close Position
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
           </div>
+        </div>
+
+        {/* Status Messages */}
+        {transactionStatus && (
+          <motion.div
+            className="mt-6 p-4 rounded-lg flex items-center space-x-2"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              backgroundColor: transactionStatus.includes('Error') ? '#1F2937' : '#065F46',
+              borderColor: transactionStatus.includes('Error') ? '#EF4444' : '#10B981'
+            }}
+          >
+            {transactionStatus.includes('Error') ? (
+              <AlertCircle className="w-5 h-5 text-red-400" />
+            ) : (
+              <CheckCircle className="w-5 h-5 text-green-400" />
+            )}
+            <span>{transactionStatus}</span>
+          </motion.div>
         )}
       </div>
+
+      {/* Bottom Navigation */}
+      <BottomNavigation />
     </div>
   );
 }
