@@ -3,12 +3,11 @@
   "name": "zentrade-ai-trading-bot",
   "alias": ["zentrade", "mmmeee"],
   "framework": "nextjs",
-  "rootDirectory": "ai-trade-bot",
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "installCommand": "npm install",
+  "buildCommand": "cd ai-trade-bot && npm run build",
+  "outputDirectory": "ai-trade-bot/.next",
+  "installCommand": "cd ai-trade-bot && npm install",
   "functions": {
-    "src/app/api/**/*.ts": {
+    "ai-trade-bot/src/app/api/**/*.ts": {
       "runtime": "nodejs18.x"
     }
   },
