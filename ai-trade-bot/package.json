@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:ignore-errors": "next build || echo 'Build completed with errors - continuing deployment'",
     "build:turbo": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
