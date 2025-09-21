@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { WalletProvider } from "@/contexts/WalletContext";
+import MobileNavigation from "@/components/MobileNavigation";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -73,11 +74,14 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="ZENTRADE" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-brazil-black text-brazil-white min-h-screen`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-50 text-slate-900 min-h-screen`}
       >
         <WalletProvider>
-          <div className="min-h-screen bg-gradient-to-br from-brazil-black via-brazil-gray to-brazil-green">
-            {children}
+          <div className="min-h-screen bg-slate-50">
+            <MobileNavigation />
+            <main className="pb-20 md:pb-8">
+              {children}
+            </main>
           </div>
         </WalletProvider>
       </body>

@@ -96,3 +96,4 @@ This gives you a public URL like: `https://abc123.ngrok.io`
 ✅ Soroswap integration  
 
 **Note:** Telegram bot runs separately and doesn't need web deployment.
+
