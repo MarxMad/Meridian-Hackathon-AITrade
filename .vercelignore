@@ -1,11 +1,25 @@
-# Ignore files that don't need to be deployed
-README.md
-*.md
-.git
-.gitignore
-soroban-meridian-hack
-ai-trade-bot/telegram-bot
+# Ignore everything except ai-trade-bot directory
+/*
+!/ai-trade-bot/**
+
+# Keep important root files
+!README.md
+!.gitignore
+
+# Ignore these in ai-trade-bot
 ai-trade-bot/node_modules
 ai-trade-bot/.next
-.env*
-!.env.example
+ai-trade-bot/.env.local
+ai-trade-bot/telegram-bot
+ai-trade-bot/DEPLOY.md
+ai-trade-bot/QUICK-DEPLOY.md
+ai-trade-bot/README-HACKATHON.md
+ai-trade-bot/start-demo.sh
+
+# Ignore other directories completely
+soroban-meridian-hack
+contracts
+target
+venv
+node_modules
+.git

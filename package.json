@@ -1,40 +1,35 @@
 {
-  "name": "zentrade-meridian-hackathon",
-  "version": "2.0.0",
-  "private": true,
-  "description": "ZENTRADE - AI Trading Bot for Meridian Hackathon 2025 - Composability Track",
+  "name": "meridian-hackathon-ai-trade",
+  "version": "1.0.0",
+  "description": "AI Trading Bot for Stellar with Soroswap integration",
+  "main": "soroswap_client.js",
   "scripts": {
-    "build": "cd ai-trade-bot && npm install && npm run build",
-    "start": "cd ai-trade-bot && npm start",
-    "dev": "cd ai-trade-bot && npm run dev",
-    "install:all": "cd ai-trade-bot && npm install",
-    "bot:start": "cd ai-trade-bot/telegram-bot && npm start",
-    "bot:railway": "cd ai-trade-bot/telegram-bot && npm run railway"
+    "test-api": "node test_soroswap_api.js",
+    "start": "node soroswap_client.js"
+  },
+  "keywords": [
+    "stellar",
+    "soroban",
+    "trading",
+    "ai",
+    "soroswap",
+    "defi",
+    "hackathon"
+  ],
+  "author": "Meridian Hackathon 2025",
+  "license": "MIT",
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/MarxMad/Meridian-Hackathon-AITrade.git"
   },
-  "keywords": [
-    "stellar",
-    "soroswap",
-    "soroban",
-    "trading",
-    "ai",
-    "hackathon",
-    "meridian",
-    "composability",
-    "nextjs",
-    "telegram-bot"
-  ],
-  "author": "ZENTRADE Team - Meridian Hackathon 2025",
-  "license": "MIT",
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
+  "bugs": {
+    "url": "https://github.com/MarxMad/Meridian-Hackathon-AITrade/issues"
   },
-  "workspaces": [
-    "ai-trade-bot",
-    "ai-trade-bot/telegram-bot"
-  ]
+  "homepage": "https://github.com/MarxMad/Meridian-Hackathon-AITrade#readme"
 }
