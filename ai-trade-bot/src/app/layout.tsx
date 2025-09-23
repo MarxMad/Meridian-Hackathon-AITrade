@@ -73,10 +73,10 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="ZENTRADE" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-brazil-black text-brazil-white min-h-screen`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-900 text-white min-h-screen`}
       >
         <WalletProvider>
-          <div className="min-h-screen bg-gradient-to-br from-brazil-black via-brazil-gray to-brazil-green">
+          <div className="min-h-screen bg-gray-900">
             {children}
           </div>
         </WalletProvider>

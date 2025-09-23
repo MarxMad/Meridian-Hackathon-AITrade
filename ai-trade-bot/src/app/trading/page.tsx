@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 import { useWallet } from '@/contexts/WalletContext';
 import { contractService } from '@/services/contractService';
 import BottomNavigation from '@/components/MobileMenu';
+import Navigation from '@/components/Navigation';
 import { 
   LineChart, 
   Line, 
@@ -265,61 +267,45 @@ export default function TradingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white pb-20">
-      {/* Header */}
-      <div className="border-b border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 sm:space-x-3">
-              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r from-purple-500 to-yellow-500 rounded-lg flex items-center justify-center">
-                <Zap className="w-3 h-3 sm:w-5 sm:h-5 text-black" />
-      </div>
-              <h1 className="text-xl sm:text-2xl font-bold">Trading</h1>
-                    </div>
-            <div className="flex items-center space-x-2 sm:space-x-4">
-                  {isConnected ? (
-                <div className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm text-gray-400">
-                  <Wallet className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden sm:inline">{publicKey?.slice(0, 8)}...{publicKey?.slice(-8)}</span>
-                  <span className="sm:hidden">{publicKey?.slice(0, 4)}...{publicKey?.slice(-4)}</span>
-                    </div>
-                  ) : (
-                <div className="text-xs sm:text-sm text-gray-400">Connect wallet</div>
-              )}
-                      </div>
-                    </div>
-                </div>
-              </div>
+    <div className="min-h-screen bg-gray-900 text-white pb-20">
+      {/* Top Navigation Bar */}
+      <Navigation />
               
-      <div className="max-w-7xl mx-auto px-4 py-4 sm:py-8">
-        <div className="grid lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid lg:grid-cols-3 gap-8">
           {/* Price Chart */}
           <div className="lg:col-span-2">
-            <motion.div
-              className="bg-gray-900 rounded-2xl p-4 sm:p-6 border border-gray-800"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
+            <div className="bg-gray-800/60 rounded-2xl p-6 border border-gray-700/50">
+              <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h2 className="text-lg sm:text-xl font-semibold">XLM Price</h2>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-2xl sm:text-3xl font-bold">${xlmPrice.toFixed(4)}</span>
-                    <span className="text-green-400 text-xs sm:text-sm">+2.34%</span>
+                  <h2 className="text-2xl font-bold">XLM-USD</h2>
+                  <div className="flex items-center space-x-3">
+                    <span className="text-3xl font-bold">${xlmPrice.toFixed(4)}</span>
+                    <span className="text-green-400 text-sm">+2.34%</span>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-4">
+                  <div className="flex space-x-2">
+                    {['1m', '5m', '1h', '1d'].map((timeframe) => (
+                      <button
+                        key={timeframe}
+                        className={`px-3 py-1 rounded text-sm transition-colors ${
+                          timeframe === '1m' 
+                            ? 'bg-purple-600 text-white' 
+                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                        }`}
+                      >
+                        {timeframe}
+                      </button>
+                    ))}
+                  </div>
                   <button
                     onClick={fetchXlmPrice}
                     disabled={isUpdatingPrice}
-                    className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
+                    className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
                   >
-                    <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 ${isUpdatingPrice ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`w-4 h-4 ${isUpdatingPrice ? 'animate-spin' : ''}`} />
                   </button>
-                  <div className="text-xs sm:text-sm text-gray-400">
-                    {lastUpdateTime}
-                  </div>
                 </div>
               </div>
               
@@ -364,19 +350,14 @@ export default function TradingPage() {
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
-            </motion.div>
+            </div>
             </div>
 
           {/* Trading Panel */}
           <div className="space-y-6">
             {/* New Position Form */}
-            <motion.div
-              className="bg-gray-900 rounded-2xl p-4 sm:p-6 border border-gray-800"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-            >
-              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Open Position</h3>
+            <div className="bg-gray-800/60 rounded-2xl p-6 border border-gray-700/50">
+              <h3 className="text-xl font-semibold mb-6">Trading Panel</h3>
               
               <div className="space-y-3 sm:space-y-4">
                 {/* Amount */}
@@ -436,12 +417,7 @@ export default function TradingPage() {
 
                 {/* Position Info */}
                 {newPosition.amount > 0 && (
-                  <motion.div
-                    className="p-4 bg-gray-800/50 rounded-lg border border-gray-700"
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    transition={{ duration: 0.3 }}
-                  >
+                  <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700">
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-gray-400">Entry Price:</span>
@@ -456,7 +432,7 @@ export default function TradingPage() {
                         <span className="text-white">{(newPosition.amount * xlmPrice).toFixed(2)} USDC</span>
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
                 )}
 
                 {/* Open Position Button */}
@@ -479,16 +455,11 @@ export default function TradingPage() {
                   )}
                 </button>
               </div>
-            </motion.div>
+            </div>
 
             {/* Active Positions */}
-            <motion.div
-              className="bg-gray-900 rounded-2xl p-4 sm:p-6 border border-gray-800"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-            >
-              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Active Positions</h3>
+            <div className="bg-gray-800/60 rounded-2xl p-6 border border-gray-700/50">
+              <h3 className="text-xl font-semibold mb-6">Active Positions</h3>
               
               {positions.length === 0 ? (
                 <div className="text-center py-6 sm:py-8 text-gray-400">
@@ -540,16 +511,14 @@ export default function TradingPage() {
                   ))}
                 </div>
               )}
-            </motion.div>
+            </div>
           </div>
         </div>
 
         {/* Status Messages */}
         {transactionStatus && (
-          <motion.div
+          <div
             className="mt-6 p-4 rounded-lg flex items-center space-x-2"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
             style={{
               backgroundColor: transactionStatus.includes('Error') ? '#1F2937' : '#065F46',
               borderColor: transactionStatus.includes('Error') ? '#EF4444' : '#10B981'
@@ -561,7 +530,7 @@ export default function TradingPage() {
               <CheckCircle className="w-5 h-5 text-green-400" />
             )}
             <span>{transactionStatus}</span>
-          </motion.div>
+          </div>
         )}
       </div>
 

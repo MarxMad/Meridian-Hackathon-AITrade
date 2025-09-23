@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useWallet } from "@/contexts/WalletContext";
 import BottomNavigation from "@/components/MobileMenu";
+import Navigation from "@/components/Navigation";
 import { 
   ArrowRight, 
   Zap, 
@@ -18,13 +19,29 @@ import {
   ChevronRight,
   MessageCircle,
   Bot,
-  Smartphone
+  Smartphone,
+  Menu,
+  X,
+  Settings,
+  Bell,
+  TrendingDown,
+  DollarSign,
+  Users,
+  Target,
+  Play,
+  Pause,
+  RefreshCw
 } from "lucide-react";
 
 export default function Home() {
   const { isConnected, publicKey, walletName, network, connect, disconnect, isLoading, error } = useWallet();
   const [balance, setBalance] = useState<string>('0.0000000');
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState('XLM-USD');
+  const [leverage, setLeverage] = useState(2);
+  const [positionSize, setPositionSize] = useState('100');
+  const [isLong, setIsLong] = useState(true);
 
   // Obtener balance de la wallet
   const fetchBalance = async () => {
@@ -56,138 +73,487 @@ export default function Home() {
     }
   }, [isConnected, publicKey]);
 
-  return (
-    <div className="min-h-screen bg-black text-white pb-20">
-      {/* Navigation */}
-      <nav className="border-b border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <motion.div 
-              className="flex items-center space-x-2"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-yellow-500 rounded-lg flex items-center justify-center">
-                <Zap className="w-5 h-5 text-black" />
-          </div>
-              <span className="text-xl font-bold">ZenTrade</span>
-            </motion.div>
+  // Datos de ejemplo para métricas
+  const marketData = {
+    totalVolume: "$24,821,113,265",
+    totalTrades: "2,381,716",
+    totalTraders: "43,263",
+    xlmPrice: "113,098.8",
+    xlmChange: "+0.07%",
+    xlmChangePositive: true
+  };
 
-            <div className="flex items-center space-x-4">
-              {isConnected ? (
-                <div className="flex items-center space-x-4">
-                  <div className="text-sm text-gray-400">
-                    {publicKey?.slice(0, 8)}...{publicKey?.slice(-8)}
+  const assets = [
+    { symbol: "XLM-USD", price: "113,098.8", change: "+0.07%", positive: true, category: "Crypto" },
+    { symbol: "USDC-USD", price: "1.0000", change: "+0.01%", positive: true, category: "Stablecoin" },
+    { symbol: "BTC-USD", price: "67,234.5", change: "-1.23%", positive: false, category: "Crypto" }
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white">
+      {/* Top Navigation Bar */}
+      <Navigation />
+
+      {/* Hero Section - Global Markets */}
+      <section className="relative py-16 bg-gray-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center space-y-8">
+            <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold leading-tight">
+              <span className="text-white">Global Markets,</span>
+              <br />
+              <span className="text-purple-500">Limitless Leverage.</span>
+            </h1>
+
+            <div className="flex justify-center">
+              <p className="text-xl text-gray-400 max-w-3xl leading-relaxed text-center">
+                Trade crypto, forex, metals, commodities, indices, straight from your wallet.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-8">
+              <Link href="/trading">
+                <button className="px-8 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold text-lg flex items-center space-x-3 transition-all duration-200">
+                  <span>Trade now</span>
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </Link>
+            </div>
+          </div>
                   </div>
-                        <button
-                          onClick={disconnect}
-                    className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
-                        >
-                    Disconnect
-                        </button>
+      </section>
+
+      {/* Market Data Section */}
+      <section className="py-12 bg-gray-800/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-8 text-center">
+            {/* Asset Cards */}
+            {assets.map((asset, index) => (
+              <div
+                key={index}
+                className="bg-gray-800/60 rounded-xl p-6 border border-gray-700/50 hover:border-purple-500/50 transition-all duration-300"
+              >
+                <div className="text-sm text-gray-400 mb-2">{asset.category}</div>
+                <div className="text-lg font-semibold mb-2">{asset.symbol}</div>
+                <div className="text-2xl font-bold mb-2">${asset.price}</div>
+                <div className={`text-sm ${asset.positive ? 'text-green-400' : 'text-red-400'}`}>
+                  {asset.change}
+                </div>
+              </div>
+            ))}
+
+            {/* Market Stats */}
+            <div className="bg-gray-800/60 rounded-xl p-6 border border-gray-700/50">
+              <div className="text-sm text-gray-400 mb-2">Total Traded Volume</div>
+              <div className="text-2xl font-bold">{marketData.totalVolume}</div>
                     </div>
-                  ) : (
-                          <button
-                            onClick={connect}
-                            disabled={isLoading}
-                  className="px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-black rounded-lg font-medium transition-all duration-200 disabled:opacity-50"
-                >
-                  {isLoading ? 'Conectando...' : 'Iniciar Sesión'}
-                          </button>
-              )}
+
+            <div className="bg-gray-800/60 rounded-xl p-6 border border-gray-700/50">
+              <div className="text-sm text-gray-400 mb-2">Trades</div>
+              <div className="text-2xl font-bold">{marketData.totalTrades}</div>
             </div>
           </div>
       </div>
-      </nav>
+      </section>
 
-      {/* Hero Section */}
-      <section className="relative py-16 sm:py-20 md:py-24 lg:py-32 xl:py-40">
+      {/* Trading Interface */}
+      <section className="py-12 bg-gray-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center space-y-8 flex flex-col items-center">
-            <motion.h1 
-              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold leading-tight"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-            >
-            <motion.span
-              className="text-yellow-400"
-              animate={{
-                textShadow: [
-                  "0 0 10px #FFD700",
-                  "0 0 15px #FFD700, 0 0 20px #FFD700",
-                  "0 0 10px #FFD700"
-                ]
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-            >
-              First Native
-            </motion.span>
-              <br />
-              <span className="text-white">Perpetuals on Stellar</span>
-            </motion.h1>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left Panel - Trading Controls */}
+            <div className="lg:col-span-1">
+              <div className="bg-gray-800/60 rounded-xl p-6 border border-gray-700/50">
+                <h3 className="text-xl font-semibold mb-6">Trading Panel</h3>
+                
+                {/* Asset Selection */}
+                <div className="mb-6">
+                  <label className="block text-sm text-gray-400 mb-2">Asset</label>
+                  <select 
+                    value={selectedAsset}
+                    onChange={(e) => setSelectedAsset(e.target.value)}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none"
+                  >
+                    <option value="XLM-USD">XLM-USD</option>
+                    <option value="USDC-USD">USDC-USD</option>
+                    <option value="BTC-USD">BTC-USD</option>
+                  </select>
+                </div>
 
-            <motion.p 
-              className="text-lg sm:text-xl md:text-2xl text-gray-400 max-w-3xl mx-auto leading-relaxed text-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-            >
-              Trade perpetuals with leverage up to 10x on Stellar network. 
-              Built with Soroswap integration and real-time price feeds.
-            </motion.p>
+                {/* Position Type */}
+                <div className="mb-6">
+                  <label className="block text-sm text-gray-400 mb-2">Position</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setIsLong(true)}
+                      className={`py-3 px-4 rounded-lg font-medium transition-all ${
+                        isLong 
+                          ? 'bg-green-600 text-white border-2 border-green-500' 
+                          : 'bg-gray-700 text-gray-300 border-2 border-transparent hover:bg-gray-600'
+                      }`}
+                    >
+                      Long
+                    </button>
+                    <button
+                      onClick={() => setIsLong(false)}
+                      className={`py-3 px-4 rounded-lg font-medium transition-all ${
+                        !isLong 
+                          ? 'bg-red-600 text-white border-2 border-red-500' 
+                          : 'bg-gray-700 text-gray-300 border-2 border-transparent hover:bg-gray-600'
+                      }`}
+                    >
+                      Short
+                    </button>
+                  </div>
+                </div>
 
-            <motion.div 
-              className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center pt-4 w-full"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-            >
-              <Link href="/trading">
-                <button className="w-full sm:w-auto px-8 sm:px-10 py-4 sm:py-5 bg-yellow-500 hover:bg-yellow-600 text-black rounded-xl font-semibold text-lg sm:text-xl flex items-center justify-center space-x-3 transition-all duration-200 shadow-lg hover:shadow-yellow-500/25">
-                  <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6" />
-                  <span>Start Trading</span>
-                  <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6" />
+                {/* Collateral */}
+                <div className="mb-6">
+                  <label className="block text-sm text-gray-400 mb-2">Collateral</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={positionSize}
+                      onChange={(e) => setPositionSize(e.target.value)}
+                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 pr-16 text-white focus:border-purple-500 focus:outline-none"
+                      placeholder="100"
+                    />
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                      USDC
+                    </div>
+                  </div>
+                  <div className="flex space-x-2 mt-2">
+                    {[10, 25, 50, 75, 100].map((percent) => (
+                      <button
+                        key={percent}
+                        onClick={() => setPositionSize(percent.toString())}
+                        className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors"
+                      >
+                        {percent}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Leverage */}
+                <div className="mb-6">
+                  <label className="block text-sm text-gray-400 mb-2">Leverage</label>
+                  <div className="flex items-center space-x-4">
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      value={leverage}
+                      onChange={(e) => setLeverage(Number(e.target.value))}
+                      className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                    />
+                    <div className="w-16 text-center">
+                      <span className="text-lg font-semibold">{leverage}x</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Position Size */}
+                <div className="mb-6">
+                  <label className="block text-sm text-gray-400 mb-2">Position Size</label>
+                  <div className="bg-gray-700 rounded-lg px-4 py-3 text-white">
+                    <div className="text-lg font-semibold">${(parseFloat(positionSize) * leverage).toFixed(2)}</div>
+                  </div>
+                </div>
+
+                {/* Action Button */}
+                <button className="w-full py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold text-lg transition-all duration-200">
+                  {isConnected ? 'Open Position' : 'Connect Wallet'}
                 </button>
-              </Link>
-              <Link href="/swaps">
-                <button className="w-full sm:w-auto px-8 sm:px-10 py-4 sm:py-5 border-2 border-gray-600 hover:border-gray-500 rounded-xl font-semibold text-lg sm:text-xl flex items-center justify-center space-x-3 transition-all duration-200 hover:bg-gray-800/50">
-                  <ArrowUpDown className="w-5 h-5 sm:w-6 sm:h-6" />
-                  <span>Swap Tokens</span>
+
+                {/* Status */}
+                <div className="mt-6 flex items-center justify-between text-sm">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-gray-400">Fully Operational</span>
+                  </div>
+                  <button className="text-gray-400 hover:text-white transition-colors">
+                    <Settings className="w-4 h-4" />
                 </button>
-                </Link>
-            </motion.div>
+                </div>
               </div>
             </div>
 
-        {/* Grid Pattern Background */}
-        <div className="absolute inset-0 -z-10">
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+            {/* Center Panel - Chart Area */}
+            <div className="lg:col-span-2">
+              <div className="bg-gray-800/60 rounded-xl p-6 border border-gray-700/50">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-2xl font-bold">{marketData.xlmPrice}</h3>
+                    <div className={`text-sm ${marketData.xlmChangePositive ? 'text-green-400' : 'text-red-400'}`}>
+                      {marketData.xlmChange}
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">
+                      1m
+                    </button>
+                    <button className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">
+                      5m
+                    </button>
+                    <button className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">
+                      1h
+                    </button>
+                    <button className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">
+                      1d
+                    </button>
+                  </div>
+                </div>
+
+                {/* Chart Placeholder */}
+                <div className="h-64 bg-gray-700/50 rounded-lg flex items-center justify-center">
+                  <div className="text-center">
+                    <BarChart3 className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+                    <p className="text-gray-500">Chart will be integrated here</p>
+                  </div>
+                </div>
+
+                {/* Market Stats */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                  <div className="text-center">
+                    <div className="text-sm text-gray-400">24H CHANGE</div>
+                    <div className="text-lg font-semibold text-green-400">+0.07%</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm text-gray-400">OI (L/S)</div>
+                    <div className="text-lg font-semibold">3.3M / 3.1M</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm text-gray-400">LIQUIDITY</div>
+                    <div className="text-lg font-semibold">7.7M / 7.9M</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm text-gray-400">SENTIMENT</div>
+                    <div className="text-lg font-semibold">51% / 49%</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
                 </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-20 sm:py-24 md:py-32 bg-gray-900/30 text-center">
+      {/* Advanced Trading Features */}
+      <section className="py-20 bg-gray-800/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div 
-            className="text-center mb-16 sm:mb-20 md:mb-24 flex flex-col items-center" 
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6 sm:mb-8 text-center">Built for Stellar</h2>
-            <p className="text-gray-400 text-lg sm:text-xl md:text-2xl max-w-4xl mx-auto leading-relaxed text-center">
-              Native integration with Stellar ecosystem and Soroswap protocol
-            </p>
-          </motion.div>
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-6">Advanced Trading Features</h2>
+            <div className="flex justify-center">
+              <p className="text-gray-400 text-xl max-w-4xl text-center">
+                Professional tools for sophisticated traders on Stellar
+              </p>
+            </div>
+          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 md:gap-10">
+          {/* Loss Protection & Positive Slippage Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
+            {/* Loss Protection Card */}
+            <div className="bg-gray-800/60 rounded-2xl p-8 border border-gray-700/50 hover:border-purple-500/50 transition-all duration-300">
+              <div className="flex items-center mb-4">
+                <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center mr-3">
+                  <Shield className="w-5 h-5 text-green-400" />
+                </div>
+                <div>
+                  <div className="text-sm text-purple-400 font-medium">TRADER</div>
+                  <h3 className="text-2xl font-bold">Loss Protection</h3>
+                </div>
+              </div>
+              
+              <p className="text-gray-400 mb-6">
+                Get up to 20% rebate on losses when trading against popular sentiment or for arbitrage strategies.
+              </p>
+
+              {/* Market Sentiment */}
+              <div className="mb-6">
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-gray-400">Market Sentiment</span>
+                  <span className="text-gray-300">71% Long / 29% Short</span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-2">
+                  <div className="bg-green-500 h-2 rounded-full" style={{ width: '71%' }}></div>
+                </div>
+              </div>
+
+              {/* Position Size */}
+              <div className="mb-6">
+                <label className="block text-sm text-gray-400 mb-2">Position Size</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value="20,000.00"
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 pr-16 text-white focus:border-purple-500 focus:outline-none"
+                    readOnly
+                  />
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                    USDC
+                  </div>
+                </div>
+              </div>
+
+              {/* Trade Buttons */}
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <button className="py-3 px-4 bg-green-600 text-white rounded-lg font-medium border-2 border-green-500 flex items-center justify-center">
+                  Long
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </button>
+                <button className="py-3 px-4 bg-gray-700 text-gray-300 rounded-lg font-medium border-2 border-transparent hover:bg-gray-600">
+                  Short
+                </button>
+              </div>
+
+              {/* Status */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                  <span className="text-sm text-gray-400">Loss Protection Inactive</span>
+                </div>
+                <div className="text-sm text-gray-400">Up to 20% rebate</div>
+              </div>
+            </div>
+
+            {/* Positive Slippage Card */}
+            <div className="bg-gray-800/60 rounded-2xl p-8 border border-gray-700/50 hover:border-purple-500/50 transition-all duration-300">
+              <div className="flex items-center mb-4">
+                <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center mr-3">
+                  <TrendingUp className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <div className="text-sm text-purple-400 font-medium">TRADER</div>
+                  <h3 className="text-2xl font-bold">Positive Slippage</h3>
+                </div>
+              </div>
+              
+              <p className="text-gray-400 mb-6">
+                Get rewarded with positive slippage for balancing open interest. Enter trades at better-than-market prices.
+              </p>
+
+              {/* Asset Selection */}
+              <div className="mb-6">
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className="w-8 h-8 bg-gray-700 rounded-lg flex items-center justify-center">
+                    <span className="text-sm font-bold">Ξ</span>
+                  </div>
+                  <div>
+                    <div className="text-lg font-semibold">ETH-USD</div>
+                    <div className="text-sm text-green-400">10x Long</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Price Metrics */}
+              <div className="space-y-3 mb-6">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Market Price</span>
+                  <span className="text-white">2,892.60</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Price Benefit</span>
+                  <span className="text-green-400">+0.05%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Execution Price</span>
+                  <span className="text-green-400 font-semibold">2,747.97</span>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-sm text-gray-400">Positive Slippage Active</span>
+                </div>
+                <div className="text-sm text-green-400">Better execution</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Liquidity Provider Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
+            {/* Optimized for LPs */}
+            <div className="bg-gray-800/60 rounded-2xl p-8 border border-gray-700/50 hover:border-purple-500/50 transition-all duration-300">
+              <div className="mb-4">
+                <div className="text-sm text-purple-400 font-medium mb-2">LIQUIDITY PROVIDER</div>
+                <h3 className="text-2xl font-bold mb-4">Optimized for LPs</h3>
+                <p className="text-gray-400 mb-6">
+                  Our dynamic risk-engine optimizes LP returns across all market conditions. Our LPs have already earned &gt;$1M in USDC fees.
+                </p>
+              </div>
+
+              {/* APR Chart Placeholder */}
+              <div className="h-32 bg-gray-700/50 rounded-lg mb-4 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-purple-500/20 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <BarChart3 className="w-8 h-8 text-purple-400" />
+                  </div>
+                  <p className="text-gray-500 text-sm">Dynamic APR Chart</p>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">APR</span>
+                <span className="text-2xl font-bold text-green-400">+15.32%</span>
+              </div>
+            </div>
+
+            {/* Built for every type of LP */}
+            <div className="bg-gray-800/60 rounded-2xl p-8 border border-gray-700/50 hover:border-purple-500/50 transition-all duration-300">
+              <div className="mb-4">
+                <div className="text-sm text-purple-400 font-medium mb-2">LIQUIDITY PROVIDER</div>
+                <h3 className="text-2xl font-bold mb-4">Built for every type of LP</h3>
+                <p className="text-gray-400 mb-6">
+                  Avantis unlocks a new design space for LPs via our unique time and risk parameters. Choose to be on the lowest or highest end of the risk-spectrum.
+                </p>
+              </div>
+
+              {/* Risk Tranches */}
+              <div className="space-y-4 mb-6">
+                <div className="bg-gray-700/50 rounded-lg p-4 border border-gray-600">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-gray-600 rounded-lg flex items-center justify-center">
+                        <DollarSign className="w-4 h-4 text-gray-300" />
+                      </div>
+                      <div>
+                        <div className="font-semibold">Junior Tranche</div>
+                        <div className="text-sm text-red-400">High Risk</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-purple-500/20 rounded-lg p-4 border border-purple-500/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
+                        <DollarSign className="w-4 h-4 text-white" />
+                      </div>
+                      <div>
+                        <div className="font-semibold">Senior Tranche</div>
+                        <div className="text-sm text-green-400">Low Risk</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Total liquidity</span>
+                  <span className="text-white">$140,648.55</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">APR</span>
+                  <span className="text-white">20%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Basic Features Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               {
                 icon: <Zap className="w-8 h-8" />,
@@ -220,214 +586,54 @@ export default function Home() {
                 description: "Real-time price charts for informed trading decisions"
               }
             ].map((feature, index) => (
-              <motion.div
+              <div
                 key={index}
-                className="p-6 sm:p-8 bg-gray-800/40 rounded-2xl border border-gray-700/50 hover:border-purple-500/50 transition-all duration-300 hover:bg-gray-800/60"
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                whileHover={{ y: -8, scale: 1.02 }}
+                className="p-8 bg-gray-800/40 rounded-2xl border border-gray-700/50 hover:border-purple-500/50 transition-all duration-300 hover:-translate-y-2"
               >
-                <div className="text-purple-500 mb-6 text-center">{feature.icon}</div>
-                <h3 className="text-xl sm:text-2xl font-bold mb-4 text-center">{feature.title}</h3>
-                <p className="text-gray-400 text-base sm:text-lg leading-relaxed text-center">{feature.description}</p>
-              </motion.div>
-            ))}
+                <div className="text-purple-500 mb-6">{feature.icon}</div>
+                <h3 className="text-xl font-bold mb-4">{feature.title}</h3>
+                <p className="text-gray-400 leading-relaxed">{feature.description}</p>
               </div>
-            </div>
-      </section>
-
-      {/* Telegram Bot Section */}
-      <section className="py-20 sm:py-24 md:py-32 bg-gradient-to-br from-gray-900/50 to-purple-900/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            className="text-center mb-16 sm:mb-20 flex flex-col items-center"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-          >
-            <motion.div
-              className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl mb-6 sm:mb-8"
-              whileHover={{ scale: 1.1, rotate: 5 }}
-              transition={{ duration: 0.3 }}
-            >
-              <MessageCircle className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
-            </motion.div>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6 sm:mb-8 text-center">
-              Trade desde <span className="text-yellow-400">Telegram</span>
-            </h2>
-            <p className="text-gray-400 text-lg sm:text-xl md:text-2xl max-w-4xl mx-auto leading-relaxed text-center">
-              La primera plataforma nativa de Stellar que te permite hacer swaps y trades directamente desde Telegram
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 sm:gap-16 items-center">
-            {/* Left Side - Features */}
-            <motion.div
-              className="space-y-8 sm:space-y-10"
-              initial={{ opacity: 0, x: -50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true }}
-            >
-              <div className="space-y-6 sm:space-y-8">
-                {[
-                  {
-                    icon: <Bot className="w-6 h-6 sm:w-8 sm:h-8" />,
-                    title: "Bot Inteligente",
-                    description: "Interfaz conversacional para trading intuitivo"
-                  },
-                  {
-                    icon: <Smartphone className="w-6 h-6 sm:w-8 sm:h-8" />,
-                    title: "Acceso Móvil",
-                    description: "Trade desde cualquier lugar con tu teléfono"
-                  },
-                  {
-                    icon: <ArrowUpDown className="w-6 h-6 sm:w-8 sm:h-8" />,
-                    title: "Swaps Instantáneos",
-                    description: "Intercambia tokens XLM/USDC al instante"
-                  },
-                  {
-                    icon: <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8" />,
-                    title: "Trading Avanzado",
-                    description: "Posiciones con leverage hasta 10x"
-                  }
-                ].map((feature, index) => (
-                  <motion.div
-                    key={index}
-                    className="flex items-start space-x-4 sm:space-x-6"
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: index * 0.1 }}
-                    viewport={{ once: true }}
-                  >
-                    <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 bg-yellow-500/20 rounded-xl flex items-center justify-center text-yellow-400">
-                      {feature.icon}
-                  </div>
-                  <div>
-                      <h3 className="text-lg sm:text-xl font-semibold mb-2 text-white text-center">{feature.title}</h3>
-                      <p className="text-gray-400 text-sm sm:text-base leading-relaxed text-center">{feature.description}</p>
-                  </div>
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* Right Side - CTA */}
-            <motion.div
-              className="text-center lg:text-left"
-              initial={{ opacity: 0, x: 50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true }}
-            >
-              <div className="bg-gray-800/60 backdrop-blur-sm rounded-3xl p-8 sm:p-10 border border-gray-700/50">
-                <div className="mb-8">
-                  <h3 className="text-2xl sm:text-3xl font-bold mb-4 text-white text-center">
-                    ¡Prueba el Bot!
-                  </h3>
-                  <p className="text-gray-400 text-lg sm:text-xl leading-relaxed mb-6 text-center">
-                    Conecta tu wallet y comienza a tradear desde Telegram en segundos
-                  </p>
-                </div>
-
-                <div className="space-y-4 sm:space-y-6">
-                  <a
-                    href="https://t.me/your_bot_username"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block"
-                  >
-                    <motion.button
-                      className="w-full sm:w-auto px-8 sm:px-12 py-4 sm:py-5 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl font-semibold text-lg sm:text-xl flex items-center justify-center space-x-3 transition-all duration-200 shadow-lg hover:shadow-blue-500/25"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
-                      <span>Abrir en Telegram</span>
-                      <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6" />
-                    </motion.button>
-                  </a>
-                  
-                  <div className="text-sm text-gray-500 text-center">
-                    <p>💡 <strong>Tip:</strong> Usa /start para comenzar</p>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-            </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="py-20 sm:py-24 md:py-32">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-12 md:gap-16 text-center">
-            {[
-              { label: "Total Volume", value: "$2.4M", icon: <TrendingUp className="w-8 h-8" /> },
-              { label: "Active Users", value: "1,234", icon: <Activity className="w-8 h-8" /> },
-              { label: "Successful Trades", value: "15,678", icon: <Star className="w-8 h-8" /> },
-              { label: "Uptime", value: "99.9%", icon: <Shield className="w-8 h-8" /> }
-            ].map((stat, index) => (
-              <motion.div
-                key={index}
-                className="text-center p-6 sm:p-8 bg-gray-900/30 rounded-2xl border border-gray-800/50 hover:border-purple-500/30 transition-all duration-300"
-                initial={{ opacity: 0, scale: 0.8 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                whileHover={{ scale: 1.05 }}
-              >
-                <div className="text-purple-500 mb-4 flex justify-center">{stat.icon}</div>
-                <div className="text-3xl sm:text-4xl md:text-5xl font-bold mb-2 text-white text-center">{stat.value}</div>
-                <div className="text-gray-400 text-sm sm:text-base font-medium text-center">{stat.label}</div>
-              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 sm:py-24 md:py-32 bg-gradient-to-r from-purple-500/10 to-yellow-500/10">
+      <section className="py-20 bg-gradient-to-r from-purple-500/10 to-yellow-500/10">
         <div className="max-w-5xl mx-auto text-center px-4 sm:px-6 lg:px-8">
-          <motion.div
-            className="space-y-8 flex flex-col items-center"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white text-center">
+          <div className="space-y-8">
+            <h2 className="text-4xl font-bold">
               Ready to Start Trading?
               </h2>
-            <p className="text-gray-400 text-lg sm:text-xl md:text-2xl max-w-3xl mx-auto leading-relaxed text-center">
+            <div className="flex justify-center">
+              <p className="text-gray-400 text-xl max-w-3xl text-center">
               Connect your wallet and start trading perpetuals on Stellar today
             </p>
+            </div>
             <div className="pt-4">
-              <Link href="/swaps">
-                <button className="px-10 sm:px-12 py-5 sm:py-6 bg-yellow-500 hover:bg-yellow-600 text-black rounded-2xl font-bold text-xl sm:text-2xl flex items-center justify-center space-x-3 mx-auto transition-all duration-200 shadow-2xl hover:shadow-yellow-500/25 hover:scale-105">
+              <Link href="/trading">
+                <button className="px-12 py-6 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-bold text-xl flex items-center justify-center space-x-3 mx-auto transition-all duration-200 shadow-2xl hover:shadow-purple-500/25 hover:scale-105">
                   <span>Get Started</span>
-                  <ChevronRight className="w-6 h-6 sm:w-7 sm:h-7" />
+                  <ChevronRight className="w-6 h-6" />
                 </button>
               </Link>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-gray-800/50 py-12 sm:py-16">
+      <footer className="border-t border-gray-800/50 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-center space-y-6 sm:space-y-0">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-purple-500 to-yellow-500 rounded-xl flex items-center justify-center">
-                <Zap className="w-4 h-4 sm:w-6 sm:h-6 text-black" />
+              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-yellow-500 rounded-xl flex items-center justify-center">
+                <Zap className="w-4 h-4 text-black" />
               </div>
-              <span className="text-xl sm:text-2xl font-bold text-white">ZenTrade</span>
+              <span className="text-xl font-bold">ZenTrade</span>
             </div>
-            <div className="text-gray-400 text-sm sm:text-base text-center sm:text-right max-w-md">
+            <div className="text-gray-400 text-sm text-center sm:text-right max-w-md">
               Built for Meridian Hackathon 2025 • Powered by Stellar & Soroswap
             </div>
           </div>

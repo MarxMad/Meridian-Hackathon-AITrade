@@ -33,3 +33,5 @@ echo "📊 Monitoreo: pm2 monit"
 echo "🔄 Restart: pm2 restart zentrade-bot"
 echo "📝 Logs: pm2 logs zentrade-bot"
 
+
+

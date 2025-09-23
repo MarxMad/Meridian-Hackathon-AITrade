@@ -1,27 +1,28 @@
 @import "tailwindcss";
 
 :root {
-  /* Stellar Brand Colors */
-  --stellar-purple: #7D00FF;
-  --stellar-yellow: #FFD700;
-  --stellar-black: #000000;
-  --stellar-dark: #0A0A0A;
-  --stellar-gray: #1A1A1A;
-  --stellar-light-gray: #2A2A2A;
-  --stellar-white: #FFFFFF;
-  --stellar-text: #E5E5E5;
-  --stellar-text-secondary: #A0A0A0;
+  /* Avantis-inspired Colors */
+  --avantis-purple: #8B5CF6;
+  --avantis-dark: #111827;
+  --avantis-gray: #1F2937;
+  --avantis-light-gray: #374151;
+  --avantis-white: #FFFFFF;
+  --avantis-text: #F9FAFB;
+  --avantis-text-secondary: #9CA3AF;
+  --avantis-green: #10B981;
+  --avantis-red: #EF4444;
+  --avantis-yellow: #F59E0B;
   
   /* Background */
-  --background: var(--stellar-black);
-  --foreground: var(--stellar-text);
+  --background: var(--avantis-dark);
+  --foreground: var(--avantis-text);
   
   /* Accent colors */
-  --accent-primary: var(--stellar-purple);
-  --accent-secondary: var(--stellar-yellow);
-  --accent-success: #00D4AA;
-  --accent-error: #FF6B6B;
-  --accent-warning: var(--stellar-yellow);
+  --accent-primary: var(--avantis-purple);
+  --accent-secondary: var(--avantis-yellow);
+  --accent-success: var(--avantis-green);
+  --accent-error: var(--avantis-red);
+  --accent-warning: var(--avantis-yellow);
 }
 
 @theme inline {
@@ -109,4 +110,97 @@ h1, h2, h3, h4, h5, h6, p, ul, ol, li {
 /* Smooth transitions */
 * {
   transition: all 0.2s ease-in-out;
+}
+
+/* Custom slider styles */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-track {
+  background: var(--avantis-gray);
+  height: 8px;
+  border-radius: 4px;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--avantis-purple);
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid var(--avantis-white);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.slider::-webkit-slider-thumb:hover {
+  background: #7C3AED;
+  transform: scale(1.1);
+}
+
+.slider::-moz-range-track {
+  background: var(--avantis-gray);
+  height: 8px;
+  border-radius: 4px;
+  border: none;
+}
+
+.slider::-moz-range-thumb {
+  background: var(--avantis-purple);
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid var(--avantis-white);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.slider::-moz-range-thumb:hover {
+  background: #7C3AED;
+  transform: scale(1.1);
+}
+
+/* Custom scrollbar for better dark theme */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--avantis-gray);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--avantis-purple);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #7C3AED;
+}
+
+/* Focus styles for better accessibility */
+button:focus,
+input:focus,
+select:focus {
+  outline: 2px solid var(--avantis-purple);
+  outline-offset: 2px;
+}
+
+/* Hover effects */
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, var(--avantis-purple), var(--avantis-yellow));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
