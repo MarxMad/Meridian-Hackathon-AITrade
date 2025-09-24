@@ -1,0 +1,180 @@
+{
+  "sistema": {
+    "nombre": "AI Trading Bot - Meridian Hack",
+    "version": "1.0",
+    "estado": "funcional",
+    "fecha_creacion": "2024-12-19"
+  },
+  "apis_criticas": {
+    "soroswap_execute": {
+      "ruta": "/api/soroswap/execute",
+      "funcion": "Swaps reales con Soroswap",
+      "parametros_criticos": ["sourceAccount", "quote", "network"],
+      "no_modificar": true
+    },
+    "contract_execute": {
+      "ruta": "/api/contract/execute",
+      "funcion": "Trading con contrato Stellar",
+      "parametros_criticos": ["operation", "sourceAccount", "asset", "amount", "leverage", "trade_type"],
+      "no_modificar": true
+    },
+    "contract_positions": {
+      "ruta": "/api/contract/positions",
+      "funcion": "Estado persistente de posiciones",
+      "parametros_criticos": ["userId", "action", "position"],
+      "no_modificar": true
+    },
+    "contract_query": {
+      "ruta": "/api/contract/query",
+      "funcion": "Consultas de posiciones",
+      "parametros_criticos": ["query", "sourceAccount"],
+      "no_modificar": true
+    },
+    "real_submit": {
+      "ruta": "/api/contract/real-submit",
+      "funcion": "Envío de transacciones a Stellar",
+      "parametros_criticos": ["signedTransaction"],
+      "no_modificar": true
+    }
+  },
+  "wallets_contratos": {
+    "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2RMQQVU2HHGCYSC",
+    "wallet_intermedia": "GAMV6IM4H6TDV3JS23ZMVSDIIHA4SDTMK5J3GZTJ6UI2LZLIGJWY6BBB",
+    "network": "testnet",
+    "horizon_url": "https://horizon-testnet.stellar.org",
+    "network_passphrase": "Test SDF Network ; September 2015"
+  },
+  "flujos_criticos": {
+    "abrir_posicion": {
+      "pasos": [
+        "POST /api/contract/execute con operation: 'open_position'",
+        "signTransaction(transactionXdr)",
+        "POST /api/contract/real-submit con signedTransaction",
+        "POST /api/contract/positions con action: 'add'"
+      ],
+      "no_modificar": true
+    },
+    "cerrar_posicion": {
+      "pasos": [
+        "POST /api/contract/execute con operation: 'close_position'",
+        "signTransaction(transactionXdr)",
+        "POST /api/contract/real-submit con signedTransaction",
+        "POST /api/contract/positions con action: 'remove'"
+      ],
+      "no_modificar": true
+    },
+    "swaps": {
+      "pasos": [
+        "POST /api/soroswap/quote",
+        "POST /api/soroswap/execute",
+        "signTransaction(transactionXdr)",
+        "POST /api/soroswap/submit"
+      ],
+      "no_modificar": true
+    }
+  },
+  "calculos_criticos": {
+    "pnl_calculation": {
+      "formula": "priceChange * amount * leverage",
+      "long": "priceChange * amount * leverage",
+      "short": "-priceChange * amount * leverage",
+      "final_amount": "Math.max(0, amount + pnl)",
+      "no_modificar": true
+    },
+    "xdr_generation": {
+      "funcion": "createRealTransaction()",
+      "archivo": "/utils/stellarUtils.ts",
+      "no_modificar": true
+    }
+  },
+  "estructura_posiciones": {
+    "campos_obligatorios": [
+      "id",
+      "asset", 
+      "amount",
+      "leverage",
+      "type",
+      "entryPrice",
+      "currentPrice",
+      "pnl",
+      "timestamp"
+    ],
+    "tipos": {
+      "id": "string",
+      "asset": "string",
+      "amount": "number",
+      "leverage": "number", 
+      "type": "'long' | 'short'",
+      "entryPrice": "number",
+      "currentPrice": "number",
+      "pnl": "number",
+      "timestamp": "string"
+    },
+    "no_modificar": true
+  },
+  "funciones_criticas": {
+    "wallet_context": [
+      "signTransaction(transactionXdr: string): Promise<string>",
+      "connect(): Promise<void>",
+      "disconnect(): void"
+    ],
+    "trading_page": [
+      "openPosition()",
+      "closePosition()", 
+      "createPosition()",
+      "removePosition()",
+      "fetchPositions()"
+    ],
+    "swaps_page": [
+      "getSwapQuote()",
+      "executeSwap()"
+    ],
+    "no_modificar": true
+  },
+  "archivos_criticos": {
+    "no_tocar": [
+      "/api/contract/execute/route.ts",
+      "/api/contract/positions/route.ts", 
+      "/api/soroswap/execute/route.ts",
+      "/utils/stellarUtils.ts",
+      "/contexts/WalletContext.tsx"
+    ],
+    "funciones_criticas": [
+      "createRealTransaction()",
+      "signTransaction()",
+      "openPosition()",
+      "closePosition()",
+      "executeSwap()"
+    ]
+  },
+  "mejoras_seguras": {
+    "frontend": [
+      "Estilos CSS/Tailwind",
+      "Componentes de UI",
+      "Animaciones",
+      "Layouts",
+      "Colores y temas"
+    ],
+    "backend": [
+      "Logs adicionales",
+      "Validaciones extra",
+      "Manejo de errores mejorado"
+    ]
+  },
+  "notas_importantes": [
+    "Sistema de Wallet Intermedia: Las posiciones se manejan desde la wallet de Meridian",
+    "XDRs Reales: Siempre usar createRealTransaction() para XDRs válidos",
+    "Estado Persistente: Las posiciones se mantienen hasta cerrarlas",
+    "PnL Automático: Se calcula en tiempo real basado en precios",
+    "Trustlines: Se crean automáticamente para USDC"
+  ],
+  "mantenimiento": {
+    "reglas": [
+      "No modificar las APIs críticas",
+      "Mantener la estructura de datos de posiciones", 
+      "Preservar los flujos de transacciones",
+      "No cambiar los cálculos de PnL",
+      "Mantener la integración con Stellar SDK"
+    ]
+  }
+}

@@ -143,14 +143,14 @@ export default function TradingPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          function: 'get_my_positions',
-          args: [publicKey]
+          query: 'get_my_positions',
+          sourceAccount: publicKey
         }),
       });
 
       const data = await response.json();
       if (data.success) {
-        setPositions(data.data || []);
+        setPositions(data.data?.result?.positions || []);
       }
     } catch (error) {
       console.error('Error obteniendo posiciones:', error);
@@ -180,32 +180,73 @@ export default function TradingPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          function: 'open_position',
-          args: [
-            'XLM',
-            newPosition.amount,
-            newPosition.type,
-            'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC' // Token asset
-          ]
+          operation: 'open_position',
+          sourceAccount: publicKey,
+          asset: 'XLM',
+          amount: newPosition.amount,
+          leverage: newPosition.leverage,
+          trade_type: newPosition.type
         }),
       });
 
       const data = await response.json();
       
       if (data.success) {
-        setTransactionStatus('¡Posición abierta exitosamente!');
-        setTradeResult(data);
-        setShowConfirmation(true);
+        setTransactionStatus('Firmando transacción...');
         
-        // Actualizar posiciones
-        fetchPositions();
+        // Firmar transacción
+        const signedTransaction = await signTransaction(data.transactionXdr);
         
-        // Resetear formulario
-        setNewPosition({
-          amount: 0,
-          leverage: 2,
-          type: 'long'
+        if (!signedTransaction) {
+          throw new Error('Error firmando transacción');
+        }
+
+        setTransactionStatus('Enviando transacción...');
+        
+        // Enviar transacción
+        const submitResponse = await fetch('/api/contract/real-submit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            signedTransaction: signedTransaction
+          })
         });
+
+        const submitData = await submitResponse.json();
+        
+        if (submitData.success) {
+          setTransactionStatus('¡Posición abierta exitosamente!');
+          setTradeResult({
+            ...data,
+            hash: submitData.data.hash,
+            ledger: submitData.data.ledger
+          });
+          setShowConfirmation(true);
+          
+          // Crear posición en el sistema
+          await createPosition({
+            asset: 'XLM',
+            amount: newPosition.amount,
+            leverage: newPosition.leverage,
+            type: newPosition.type,
+            entryPrice: 0.124733, // Precio actual
+            currentPrice: 0.124733
+          });
+          
+          // Actualizar posiciones
+          fetchPositions();
+          
+          // Resetear formulario
+          setNewPosition({
+            amount: 0,
+            leverage: 2,
+            type: 'long'
+          });
+        } else {
+          throw new Error(submitData.message || 'Error enviando transacción');
+        }
       } else {
         setTransactionStatus(`Error: ${data.message}`);
       }
@@ -217,8 +258,56 @@ export default function TradingPage() {
     }
   };
 
+  // Crear posición en el sistema
+  const createPosition = async (positionData: any) => {
+    try {
+      const response = await fetch('/api/contract/positions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: publicKey,
+          action: 'add',
+          position: positionData
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        console.log('✅ Posición creada en el sistema');
+      }
+    } catch (error) {
+      console.error('Error creando posición:', error);
+    }
+  };
+
+  // Eliminar posición del sistema
+  const removePosition = async (position: any) => {
+    try {
+      const response = await fetch('/api/contract/positions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: publicKey,
+          action: 'remove',
+          position: position
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        console.log('✅ Posición eliminada del sistema');
+      }
+    } catch (error) {
+      console.error('Error eliminando posición:', error);
+    }
+  };
+
   // Cerrar posición
-  const closePosition = async (positionId: string) => {
+  const closePosition = async (position: any) => {
     setTransactionStatus('Cerrando posición...');
     setIsLoading(true);
 
@@ -229,20 +318,61 @@ export default function TradingPage() {
           'Content-Type': 'application/json',
         },
           body: JSON.stringify({
-          function: 'close_position',
-          args: [positionId]
+          operation: 'close_position',
+          sourceAccount: publicKey,
+          positionId: position.id,
+          amount: position.amount,
+          entryPrice: position.entryPrice,
+          currentPrice: position.currentPrice,
+          positionType: position.type,
+          leverage: position.leverage
         }),
       });
 
       const data = await response.json();
       
       if (data.success) {
-        setTransactionStatus('¡Posición cerrada exitosamente!');
-        setTradeResult(data);
-        setShowConfirmation(true);
+        setTransactionStatus('Firmando transacción...');
         
-        // Actualizar posiciones
-        fetchPositions();
+        // Firmar transacción
+        const signedTransaction = await signTransaction(data.transactionXdr);
+        
+        if (!signedTransaction) {
+          throw new Error('Error firmando transacción');
+        }
+
+        setTransactionStatus('Enviando transacción...');
+        
+        // Enviar transacción
+        const submitResponse = await fetch('/api/contract/real-submit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            signedTransaction: signedTransaction
+          })
+        });
+
+        const submitData = await submitResponse.json();
+        
+        if (submitData.success) {
+          setTransactionStatus('¡Posición cerrada exitosamente!');
+          setTradeResult({
+            ...data,
+            hash: submitData.data.hash,
+            ledger: submitData.data.ledger
+          });
+          setShowConfirmation(true);
+          
+          // Eliminar posición del sistema
+          await removePosition(position);
+          
+          // Actualizar posiciones
+          fetchPositions();
+        } else {
+          throw new Error(submitData.message || 'Error enviando transacción');
+        }
       } else {
         setTransactionStatus(`Error: ${data.message}`);
       }
@@ -461,14 +591,14 @@ export default function TradingPage() {
             <div className="bg-gray-800/60 rounded-2xl p-6 border border-gray-700/50">
               <h3 className="text-xl font-semibold mb-6">Active Positions</h3>
               
-              {positions.length === 0 ? (
+              {!Array.isArray(positions) || positions.length === 0 ? (
                 <div className="text-center py-6 sm:py-8 text-gray-400">
                   <BarChart3 className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
                   <p className="text-sm sm:text-base">No active positions</p>
                 </div>
               ) : (
                 <div className="space-y-2 sm:space-y-3">
-                  {positions.map((position) => (
+                  {Array.isArray(positions) && positions.map((position) => (
                     <div key={position.id} className="p-3 sm:p-4 bg-gray-800/50 rounded-lg border border-gray-700">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-1 sm:space-x-2">
@@ -501,7 +631,7 @@ export default function TradingPage() {
                       </div>
                       
                       <button
-                        onClick={() => closePosition(position.id)}
+                        onClick={() => closePosition(position)}
                         disabled={isLoading}
                         className="w-full py-2 bg-red-500/20 text-red-400 border border-red-500/50 rounded-lg hover:bg-red-500/30 transition-colors disabled:opacity-50 text-sm sm:text-base"
                       >

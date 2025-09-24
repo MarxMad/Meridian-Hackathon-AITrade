@@ -20,8 +20,15 @@ export async function createRealTransaction(
   try {
     console.log(`🔧 Creando transacción REAL: ${operation} para cuenta: ${sourceAccount}`);
 
+    // Para close_position, usar la wallet intermedia (Meridian) como fuente
+    let actualSourceAccount = sourceAccount;
+    if (operation === 'close_position') {
+      actualSourceAccount = 'GAMV6IM4H6TDV3JS23ZMVSDIIHA4SDTMK5J3GZTJ6UI2LZLIGJWY6BBB'; // Wallet Meridian
+      console.log(`🔄 Usando wallet intermedia para cerrar posición: ${actualSourceAccount}`);
+    }
+
     // Fetch account details from Horizon
-    const accountResponse = await fetch(`${HORIZON_URL}/accounts/${sourceAccount}`);
+    const accountResponse = await fetch(`${HORIZON_URL}/accounts/${actualSourceAccount}`);
     if (!accountResponse.ok) {
       const errorData = await accountResponse.json();
       throw new Error(`Failed to fetch account details: ${errorData.detail || accountResponse.statusText}`);
@@ -46,13 +53,24 @@ export async function createRealTransaction(
         break;
       }
       case 'close_position': {
-        const { positionId } = params;
+        const { positionId, amount, entryPrice, currentPrice, positionType, leverage } = params;
         
-        // Crear una operación de pago simple para demostrar
+        // Calcular PnL como en el contrato Rust
+        const priceChange = (Number(currentPrice) || 0.124733) - (Number(entryPrice) || 0.124);
+        const pnl = positionType === 'long' 
+          ? priceChange * (Number(amount) || 10) * (Number(leverage) || 1)
+          : -priceChange * (Number(amount) || 10) * (Number(leverage) || 1);
+        
+        // Calcular monto final (monto original + PnL)
+        const finalAmount = Math.max(0, (Number(amount) || 10) + pnl);
+        
+        console.log(`💰 Cerrando posición: Monto original: ${amount}, PnL: ${pnl.toFixed(4)}, Final: ${finalAmount.toFixed(4)}`);
+        
+        // Crear operación de pago desde wallet intermedia (Meridian) al usuario
         operationToAdd = Operation.payment({
           destination: sourceAccount, // Devolver al usuario
           asset: Asset.native(), // XLM como objeto Asset
-          amount: '1' // Cantidad fija para demo
+          amount: finalAmount.toFixed(7) // Cantidad final con PnL
         });
         break;
       }

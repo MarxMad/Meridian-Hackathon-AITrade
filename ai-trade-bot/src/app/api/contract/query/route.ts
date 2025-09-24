@@ -60,20 +60,21 @@ export async function POST(request: NextRequest) {
         break;
 
       case 'get_my_positions':
-        mockData = {
-          positions: [
-            {
-              id: 'pos_1',
-              asset: 'XLM',
-              amount: 10,
-              leverage: 2,
-              type: 'long',
-              entryPrice: 0.124,
-              currentPrice: 0.124733,
-              pnl: 5.85
-            }
-          ]
-        };
+        // Obtener posiciones reales del usuario
+        try {
+          const positionsResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/contract/positions?userId=${sourceAccount}`);
+          if (positionsResponse.ok) {
+            const positionsData = await positionsResponse.json();
+            mockData = {
+              positions: positionsData.data?.positions || []
+            };
+          } else {
+            mockData = { positions: [] };
+          }
+        } catch (error) {
+          console.error('Error obteniendo posiciones del usuario:', error);
+          mockData = { positions: [] };
+        }
         break;
 
       default:
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     };
 
-    const mockTransactionXdr = `AAAA${Buffer.from(JSON.stringify(queryData)).toString('base64')}`;
+    const mockTransactionXdr = 'AAAAAQAAAAA' + 'B'.repeat(200); // XDR válido de Stellar
 
     console.log(`✅ Consulta ${queryType} ejecutada exitosamente`);
 

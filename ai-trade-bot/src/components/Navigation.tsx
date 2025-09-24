@@ -11,11 +11,12 @@ import {
 
 export default function Navigation() {
   const pathname = usePathname();
-  const { isConnected, publicKey, disconnect } = useWallet();
+  const { isConnected, publicKey, disconnect, connect, isLoading } = useWallet();
 
   const navigationItems = [
     { href: "/", label: "Home" },
     { href: "/trading", label: "Trade" },
+    { href: "/swaps", label: "Swaps" },
     { href: "/portfolio", label: "Portfolio" },
     { href: "/earn", label: "Earn" },
     { href: "/leaderboard", label: "Leaderboard" },
@@ -76,7 +77,13 @@ export default function Navigation() {
                 </button>
               </div>
             ) : (
-              <div className="text-sm text-gray-400">Connect wallet</div>
+              <button
+                onClick={connect}
+                disabled={isLoading}
+                className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50"
+              >
+                {isLoading ? 'Conectando...' : 'Connect Wallet'}
+              </button>
             )}
             
             <button className="p-2 text-gray-400 hover:text-white transition-colors">
